@@ -768,7 +768,7 @@ XButton2::
     }
     finally
     {
-        Hotkey "XButton1", "On"
+        Hotkey "XButton2", "On"
     }
 }
 
