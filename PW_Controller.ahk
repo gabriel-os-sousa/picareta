@@ -2,6 +2,7 @@
 #SingleInstance Force
 
 #Include "Modules\Configuration.ahk"
+#Include "Modules\CoordinateCapture.ahk"
 #Include "Modules\FloatingPanel.ahk"
 #Include "Modules\Party.ahk"
 #Include "Modules\PartyManagement.ahk"
@@ -67,9 +68,14 @@ catch Error as err
 }
 
 FloatingPanel.Show(
+    ConfigPath,
     ControllerHotkeys,
     ToggleMouseMirror,
     FollowLeaderWithMules,
+    GetRegisteredMules,
+    GetRegisteredLeader,
+    ApplyHotkeyConfiguration,
+    ReloadRuntimeSettings,
     MouseMirror.IsEnabled()
 )
 ;ShowStartupMessage()
@@ -85,68 +91,162 @@ RegisterControllerHotkeys()
 {
     global ControllerHotkeys
 
-    Hotkey(
+    RegisterControllerHotkey(
         ControllerHotkeys.RegisterLeader,
         RegisterLeader
     )
-
-    Hotkey(
+    RegisterControllerHotkey(
         ControllerHotkeys.RegisterMule,
         RegisterMule
     )
-
-    Hotkey(
+    RegisterControllerHotkey(
         ControllerHotkeys.NextWindow,
         ActivateNextPWWindow
     )
-
-    Hotkey(
+    RegisterControllerHotkey(
         ControllerHotkeys.ShowStatus,
         ShowControllerStatus
     )
-
-    Hotkey(
+    RegisterControllerHotkey(
         ControllerHotkeys.BuildParty,
         BuildParty
     )
-
-    Hotkey(
+    RegisterControllerHotkey(
         ControllerHotkeys.RebuildParty,
         RebuildParty
     )
-
-    ; O espelhamento não possui atalho padrão.
-    ; Registra somente quando houver um valor no Characters.ini.
-    if ControllerHotkeys.ToggleMirror != ""
-    {
-        Hotkey(
-            ControllerHotkeys.ToggleMirror,
-            ToggleMouseMirror
-        )
-    }
-
-    Hotkey(
+    RegisterControllerHotkey(
+        ControllerHotkeys.ToggleMirror,
+        ToggleMouseMirror
+    )
+    RegisterControllerHotkey(
         ControllerHotkeys.ClearRegistrations,
         ClearRegistrations
     )
-
-    Hotkey(
+    RegisterControllerHotkey(
         ControllerHotkeys.ExitController,
         ExitController
     )
 }
 
-; =========================================================
-; F2 — CADASTRAR LÍDER
-;
-; Deixe a janela do personagem líder ativa
-; e pressione F2.
-; =========================================================
+/**
+ * Registra um atalho opcional e garante que uma variante já existente
+ * seja reativada. Isso corrige o caso F7 -> F6 -> F7, no qual a variante
+ * antiga permanecia criada, porém desativada.
+ */
+RegisterControllerHotkey(hotkeyValue, callback)
+{
+    hotkeyValue := Trim(hotkeyValue)
+
+    if hotkeyValue = ""
+        return
+
+    Hotkey(hotkeyValue, callback, "On")
+}
+
+UnregisterControllerHotkeys(hotkeys)
+{
+    values := [
+        hotkeys.RegisterLeader,
+        hotkeys.RegisterMule,
+        hotkeys.NextWindow,
+        hotkeys.ShowStatus,
+        hotkeys.BuildParty,
+        hotkeys.RebuildParty,
+        hotkeys.ToggleMirror,
+        hotkeys.ClearRegistrations,
+        hotkeys.ExitController
+    ]
+
+    for hotkeyValue in values
+    {
+        if Trim(hotkeyValue) = ""
+            continue
+
+        try Hotkey(hotkeyValue, "Off")
+    }
+}
+
+/**
+ * Aplica os atalhos salvos pela janela e restaura os anteriores em caso de erro.
+ */
+ApplyHotkeyConfiguration(newHotkeys, *)
+{
+    global ControllerHotkeys
+    global ConfigPath
+
+    oldHotkeys := ControllerHotkeys
+
+    try
+    {
+        UnregisterControllerHotkeys(oldHotkeys)
+        ControllerHotkeys := newHotkeys
+        RegisterControllerHotkeys()
+        return true
+    }
+    catch Error as err
+    {
+        try UnregisterControllerHotkeys(newHotkeys)
+
+        ControllerHotkeys := oldHotkeys
+
+        try RegisterControllerHotkeys()
+        try Configuration.SaveHotkeys(ConfigPath, oldHotkeys, true)
+
+        MsgBox(
+            "Não foi possível aplicar os novos atalhos."
+            . "`n`nMensagem: " err.Message
+            . "`n`nOs atalhos anteriores foram restaurados.",
+            "Erro nos atalhos"
+        )
+
+        return false
+    }
+}
+
+/**
+ * Atualiza as configurações mantidas em memória sem reiniciar o controller.
+ */
+ReloadRuntimeSettings(*)
+{
+    global ConfigPath
+    global NotificationX
+    global NotificationY
+    global InviteDelay
+    global BeforeAcceptDelay
+    global AcceptDelay
+
+    settings := Configuration.Load(ConfigPath)
+
+    if !settings
+        return false
+
+    NotificationX := settings.NotificationX
+    NotificationY := settings.NotificationY
+    InviteDelay := settings.InviteDelay
+    BeforeAcceptDelay := settings.BeforeAcceptDelay
+    AcceptDelay := settings.AcceptDelay
+
+    return true
+}
+
+GetRegisteredMules(*)
+{
+    global Mules
+    return Mules
+}
+
+GetRegisteredLeader(*)
+{
+    global LeaderHwnd
+    return LeaderHwnd
+}
 
 RegisterLeader(*)
 {
     global LeaderHwnd
     global Mules
+    global ControllerHotkeys
 
     hwnd := GetActivePWWindow()
 
@@ -155,32 +255,37 @@ RegisterLeader(*)
         MsgBox(
             "A janela ativa não é um cliente válido "
             . "do Perfect World.`n`n"
-            . "Cadastre primeiro a janela do personagem principal.",
+            . "Ative a janela do personagem principal e use o atalho "
+            . FloatingPanel.FormatHotkey(
+                ControllerHotkeys.RegisterLeader
+            )
+            . ".",
             "PW Controller"
         )
         return
     }
 
-    ; Impede que uma janela cadastrada como mula
-    ; também seja cadastrada como líder.
     for registeredMule in Mules
     {
         if registeredMule.Hwnd = hwnd
         {
+            clearText := ControllerHotkeys.ClearRegistrations != ""
+                ? FloatingPanel.FormatHotkey(
+                    ControllerHotkeys.ClearRegistrations
+                )
+                : "não configurado"
+
             MsgBox(
                 "Essa janela já está cadastrada como "
                 . registeredMule.Name
-                . ".`n`n"
-                . "Use Ctrl + F3 para limpar os cadastros "
-                . "e começar novamente.",
+                . ".`n`nUse o atalho " clearText
+                . " e comece novamente.",
                 "PW Controller"
             )
             return
         }
     }
 
-    ; Se o mesmo líder for cadastrado novamente,
-    ; apenas informa que ele já está cadastrado.
     if LeaderHwnd = hwnd
     {
         ToolTip(
@@ -193,29 +298,29 @@ RegisterLeader(*)
     }
 
     LeaderHwnd := hwnd
+    FloatingPanel.RefreshRegistrationStatus()
+
+    muleHotkey := ControllerHotkeys.RegisterMule != ""
+        ? FloatingPanel.FormatHotkey(
+            ControllerHotkeys.RegisterMule
+        )
+        : "não configurado"
 
     ToolTip(
         "LÍDER CADASTRADO"
         . "`nHWND: " LeaderHwnd
-        . "`n`nAgora ative a primeira mula"
-        . "`ne pressione F3."
+        . "`n`nAtalho para cadastrar mula: " muleHotkey
     )
 
     SetTimer(() => ToolTip(), -3000)
 }
-
-; =========================================================
-; F3 — CADASTRAR PRÓXIMA MULA
-;
-; As mulas devem ser cadastradas na mesma ordem
-; em que aparecem na lista de amigos do líder.
-; =========================================================
 
 RegisterMule(*)
 {
     global LeaderHwnd
     global Mules
     global ConfigPath
+    global ControllerHotkeys
 
     if !LeaderHwnd
     {
@@ -232,9 +337,8 @@ RegisterMule(*)
     if !hwnd
     {
         MsgBox(
-            "Nenhuma janela válida do Perfect World "
-            . "foi encontrada.`n`n"
-            . "Ative a janela da mula e pressione F3.",
+            "Nenhuma janela válida do Perfect World foi encontrada.`n`n"
+            . "Ative a janela da mula e use o atalho configurado.",
             "PW Controller"
         )
         return
@@ -244,13 +348,12 @@ RegisterMule(*)
     {
         MsgBox(
             "Essa janela está cadastrada como líder.`n`n"
-            . "Ative a janela da mula e pressione F3 novamente.",
+            . "Ative a janela da mula e tente novamente.",
             "PW Controller"
         )
         return
     }
 
-    ; Impede que a mesma janela seja cadastrada duas vezes.
     for registeredMule in Mules
     {
         if registeredMule.Hwnd = hwnd
@@ -258,8 +361,7 @@ RegisterMule(*)
             MsgBox(
                 "Essa janela já está cadastrada como "
                 . registeredMule.Name
-                . ".`n`n"
-                . "HWND: " hwnd,
+                . ".`n`nHWND: " hwnd,
                 "PW Controller"
             )
             return
@@ -268,13 +370,24 @@ RegisterMule(*)
 
     slot := Mules.Length + 1
 
-    ; Líder + 9 mulas = grupo máximo configurado.
     if slot > 9
     {
         MsgBox(
             "As 9 mulas já foram cadastradas.",
             "PW Controller"
         )
+        return
+    }
+
+    if !Configuration.IsMuleConfigured(ConfigPath, slot)
+    {
+        MsgBox(
+            "A Mula " slot " ainda não possui todos os dados configurados.`n`n"
+            . "Preencha o nome e capture as três posições na aba Mulas.",
+            "PW Controller"
+        )
+
+        FloatingPanel.OpenMulesTab(slot)
         return
     }
 
@@ -289,20 +402,24 @@ RegisterMule(*)
         Hwnd: hwnd
     })
 
+    FloatingPanel.RefreshRegistrationStatus()
+
+    nextHotkey := ControllerHotkeys.RegisterMule != ""
+        ? FloatingPanel.FormatHotkey(
+            ControllerHotkeys.RegisterMule
+        )
+        : "não configurado"
+
     ToolTip(
         "MULA " slot " CADASTRADA"
         . "`nNome: " name
         . "`nHWND: " hwnd
-        . "`n`nPróxima mula: ative a janela"
-        . "`ne pressione F3 novamente."
+        . "`n`nAtalho da próxima mula: " nextHotkey
     )
 
     SetTimer(() => ToolTip(), -3500)
 }
 
-; =========================================================
-; SC029 — Alterar para proxima janela
-; =========================================================
 ActivateNextPWWindow(*)
 {
     global LeaderHwnd
@@ -398,6 +515,7 @@ ShowControllerStatus(*)
     global ConfigPath
     global NotificationX
     global NotificationY
+    global ControllerHotkeys
 
     status := "STATUS DO PW CONTROLLER"
     status .= "`n============================"
@@ -456,22 +574,34 @@ ShowControllerStatus(*)
     else
         status .= " — configurada"
 
-    status .= "`n" ControllerHotkeys.RegisterLeader
+    status .= "`n" FloatingPanel.FormatHotkey(
+        ControllerHotkeys.RegisterLeader
+    )
     status .= " = cadastrar principal"
 
-    status .= "`n" ControllerHotkeys.RegisterMule
+    status .= "`n" FloatingPanel.FormatHotkey(
+        ControllerHotkeys.RegisterMule
+    )
     status .= " = cadastrar próxima mula"
 
-    status .= "`n" ControllerHotkeys.NextWindow
+    status .= "`n" FloatingPanel.FormatHotkey(
+        ControllerHotkeys.NextWindow
+    )
     status .= " = alternar janela"
 
-    status .= "`n" ControllerHotkeys.ShowStatus
+    status .= "`n" FloatingPanel.FormatHotkey(
+        ControllerHotkeys.ShowStatus
+    )
     status .= " = mostrar situação"
 
-    status .= "`n" ControllerHotkeys.BuildParty
+    status .= "`n" FloatingPanel.FormatHotkey(
+        ControllerHotkeys.BuildParty
+    )
     status .= " = montar PT"
 
-    status .= "`n" ControllerHotkeys.RebuildParty
+    status .= "`n" FloatingPanel.FormatHotkey(
+        ControllerHotkeys.RebuildParty
+    )
     status .= " = desmontar/remontar PT"
 
     status .= "`nAtalho do espelhamento: "
@@ -484,13 +614,17 @@ ShowControllerStatus(*)
         ? "ATIVADO"
         : "desativado"
 
-    status .= "`n" ControllerHotkeys.ClearRegistrations
+    status .= "`n" FloatingPanel.FormatHotkey(
+        ControllerHotkeys.ClearRegistrations
+    )
     status .= " = limpar cadastros"
 
-    status .= "`n" ControllerHotkeys.ExitController
+    status .= "`n" FloatingPanel.FormatHotkey(
+        ControllerHotkeys.ExitController
+    )
     status .= " = fechar controller"
 
-    MsgBox status, "PW Controller"
+    FloatingPanel.ShowDialog(status, "PW Controller")
 }
 
 ; =========================================================
@@ -502,57 +636,78 @@ FollowLeaderWithMules(*)
     global ConfigPath
     global Mules
 
-    followData := Configuration.LoadFollowLeader(
-        ConfigPath,
-        Mules
-    )
+    actions := Configuration.LoadFollowActions(ConfigPath)
 
-    if !followData
+    ; Mantém compatibilidade com instalações anteriores.
+    ; Quando ainda não existe uma sequência personalizada,
+    ; utiliza as coordenadas fixas antigas para todas as mulas.
+    if actions.Length = 0
+    {
+        legacyData := Configuration.LoadFollowLeader(
+            ConfigPath,
+            Mules
+        )
+
+        if !legacyData
+            return
+
+        actions := PartyFollow.BuildLegacyActions(
+            Mules,
+            legacyData.MenuX,
+            legacyData.MenuY,
+            legacyData.FollowX,
+            legacyData.FollowY,
+            legacyData.MenuDelay,
+            legacyData.MuleDelay
+        )
+    }
+
+    try
+    {
+        preparedActions := PartyFollow.PrepareActions(
+            actions,
+            Mules
+        )
+    }
+    catch Error as err
+    {
+        MsgBox(
+            "Não foi possível iniciar o comando Seguir líder."
+            . "`n`nMensagem: " err.Message,
+            "PW Controller"
+        )
         return
+    }
 
-    preparedMules := followData.Mules
-
-    for index, muleData in preparedMules
+    for index, action in preparedActions
     {
         ToolTip(
-            "FAZENDO MULAS SEGUIREM O LÍDER"
-            . "`n" muleData.Name
-            . "`n" index " de " preparedMules.Length
+            "EXECUTANDO SEGUIR LÍDER"
+            . "`n" action.MuleName
+            . "`nAção " index " de " preparedActions.Length
         )
 
         try
         {
-            PartyFollow.FollowLeader(
-                muleData.Hwnd,
-                followData.MenuX,
-                followData.MenuY,
-                followData.FollowX,
-                followData.FollowY,
-                followData.MenuDelay
-            )
+            PartyFollow.ExecuteAction(action)
         }
         catch Error as err
         {
             ToolTip()
 
             MsgBox(
-                "Não foi possível executar o comando em "
-                . muleData.Name
+                "Erro na ação " index " de " action.MuleName
                 . ".`n`nMensagem: " err.Message,
                 "Erro no PW Controller"
             )
-
             return
         }
-
-        if followData.MuleDelay > 0
-            Sleep followData.MuleDelay
     }
 
     ToolTip(
         "COMANDO CONCLUÍDO"
-        . "`n" preparedMules.Length
-        . " mula(s) receberam o comando para seguir."
+        . "`n" preparedActions.Length
+        . " ação(ões) executada(s)."
     )
 
     SetTimer(() => ToolTip(), -3000)
@@ -758,8 +913,11 @@ RebuildParty(*)
     {
         MsgBox(
             "O personagem principal não foi registrado.`n`n"
-            . "Ative a janela do personagem principal "
-            . "e pressione F2.",
+            . "Ative a janela do personagem principal e use o atalho "
+            . FloatingPanel.FormatHotkey(
+                ControllerHotkeys.RegisterLeader
+            )
+            . ".",
             "PW Controller"
         )
 
@@ -1002,22 +1160,29 @@ ClearRegistrations(*)
 
     LeaderHwnd := 0
     Mules := []
+    FloatingPanel.RefreshRegistrationStatus()
+
+    leaderText := ControllerHotkeys.RegisterLeader != ""
+        ? FloatingPanel.FormatHotkey(
+            ControllerHotkeys.RegisterLeader
+        )
+        : "não configurado"
+
+    muleText := ControllerHotkeys.RegisterMule != ""
+        ? FloatingPanel.FormatHotkey(
+            ControllerHotkeys.RegisterMule
+        )
+        : "não configurado"
 
     ToolTip(
         "CADASTROS APAGADOS"
-        . "`n`nCadastre novamente:"
-        . "`n" ControllerHotkeys.RegisterLeader
-        . " = principal"
-        . "`n" ControllerHotkeys.RegisterMule
-        . " = mulas"
+        . "`n`nCadastrar principal: " leaderText
+        . "`nCadastrar mula: " muleText
     )
 
     SetTimer(() => ToolTip(), -3000)
 }
 
-; =========================================================
-; CTRL + ALT + F12 — FECHAR CONTROLLER
-; =========================================================
 ExitController(*)
 {
     ExitApp
@@ -1031,6 +1196,9 @@ MirrorCurrentClick()
 {
     global LeaderHwnd
     global Mules
+
+    if CoordinateCapture.IsActive()
+        return
 
     if !MouseMirror.IsEnabled()
         return
@@ -1187,24 +1355,23 @@ ShowStartupMessage()
 
     ToolTip(
         "PW CONTROLLER INICIADO"
-        . "`n`n" ControllerHotkeys.RegisterLeader
+        . "`n`n" FloatingPanel.FormatHotkey(ControllerHotkeys.RegisterLeader)
         . " = cadastrar principal"
-        . "`n" ControllerHotkeys.RegisterMule
+        . "`n" FloatingPanel.FormatHotkey(ControllerHotkeys.RegisterMule)
         . " = cadastrar mulas"
-        . "`n" ControllerHotkeys.NextWindow
+        . "`n" FloatingPanel.FormatHotkey(ControllerHotkeys.NextWindow)
         . " = alternar janela"
-        . "`n" ControllerHotkeys.ShowStatus
+        . "`n" FloatingPanel.FormatHotkey(ControllerHotkeys.ShowStatus)
         . " = conferir cadastro"
-        . "`n" ControllerHotkeys.BuildParty
+        . "`n" FloatingPanel.FormatHotkey(ControllerHotkeys.BuildParty)
         . " = montar PT"
-        . "`n" ControllerHotkeys.RebuildParty
+        . "`n" FloatingPanel.FormatHotkey(ControllerHotkeys.RebuildParty)
         . " = remontar PT"
-        . "`n" (ControllerHotkeys.ToggleMirror != ""
-            ? ControllerHotkeys.ToggleMirror " = espelhamento"
-            : "Espelhamento = usar botão da janela")
-        . "`n" ControllerHotkeys.ClearRegistrations
+        . "`n" FloatingPanel.FormatHotkey(ControllerHotkeys.ToggleMirror)
+        . " = espelhamento"
+        . "`n" FloatingPanel.FormatHotkey(ControllerHotkeys.ClearRegistrations)
         . " = limpar cadastros"
-        . "`n" ControllerHotkeys.ExitController
+        . "`n" FloatingPanel.FormatHotkey(ControllerHotkeys.ExitController)
         . " = fechar"
     )
 

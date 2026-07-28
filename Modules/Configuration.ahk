@@ -16,127 +16,83 @@ class Configuration
             return false
         }
 
-        notificationX := IniRead(
-            configPath,
-            "General",
-            "NotificationX",
-            0
-        )
-
-        notificationY := IniRead(
-            configPath,
-            "General",
-            "NotificationY",
-            0
-        )
-
-        inviteDelay := this.ReadNonNegativeInteger(
-            configPath,
-            "General",
-            "InviteDelay",
-            150
-        )
-
-        beforeAcceptDelay := this.ReadNonNegativeInteger(
-            configPath,
-            "General",
-            "BeforeAcceptDelay",
-            300
-        )
-
-        acceptDelay := this.ReadNonNegativeInteger(
-            configPath,
-            "General",
-            "AcceptDelay",
-            150
-        )
-
-        if notificationX = 0 || notificationY = 0
-        {
-            MsgBox(
-                "As coordenadas da notificação não estão "
-                . "configuradas corretamente.`n`n"
-                . "Verifique no Characters.ini:`n"
-                . "[General]`n"
-                . "NotificationX=...`n"
-                . "NotificationY=...`n`n"
-                . "O controller será fechado.",
-                "PW Controller"
-            )
-
-            return false
-        }
-
+        ; As coordenadas podem permanecer zeradas na primeira execução.
+        ; A validação é feita somente quando a funcionalidade correspondente
+        ; for utilizada, permitindo que o usuário configure tudo pela janela.
         return {
-            NotificationX: notificationX,
-            NotificationY: notificationY,
-            InviteDelay: inviteDelay,
-            BeforeAcceptDelay: beforeAcceptDelay,
-            AcceptDelay: acceptDelay
+            NotificationX: this.ReadNonNegativeInteger(
+                configPath,
+                "General",
+                "NotificationX",
+                0
+            ),
+            NotificationY: this.ReadNonNegativeInteger(
+                configPath,
+                "General",
+                "NotificationY",
+                0
+            ),
+            InviteDelay: this.ReadNonNegativeInteger(
+                configPath,
+                "General",
+                "InviteDelay",
+                150
+            ),
+            BeforeAcceptDelay: this.ReadNonNegativeInteger(
+                configPath,
+                "General",
+                "BeforeAcceptDelay",
+                300
+            ),
+            AcceptDelay: this.ReadNonNegativeInteger(
+                configPath,
+                "General",
+                "AcceptDelay",
+                150
+            )
         }
     }
 
-    /**
-     * Carrega os atalhos configurados no Characters.ini.
-     *
-     * Todos os atalhos possuem um valor padrão para manter
-     * compatibilidade com instalações antigas que ainda não
-     * possuem a seção [Hotkeys].
-     */
     static LoadHotkeys(configPath)
     {
+        ; Nenhum comando possui atalho padrão. Na primeira execução,
+        ; a janela abre diretamente na aba Atalhos para o usuário escolher.
         hotkeys := {
-            RegisterLeader: this.ReadHotkey(
+            RegisterLeader: this.ReadOptionalHotkey(
                 configPath,
-                "RegisterLeader",
-                "F2"
+                "RegisterLeader"
             ),
-
-            RegisterMule: this.ReadHotkey(
+            RegisterMule: this.ReadOptionalHotkey(
                 configPath,
-                "RegisterMule",
-                "F3"
+                "RegisterMule"
             ),
-
-            NextWindow: this.ReadHotkey(
+            NextWindow: this.ReadOptionalHotkey(
                 configPath,
-                "NextWindow",
-                "SC029"
+                "NextWindow"
             ),
-
-            ShowStatus: this.ReadHotkey(
+            ShowStatus: this.ReadOptionalHotkey(
                 configPath,
-                "ShowStatus",
-                "F7"
+                "ShowStatus"
             ),
-
-            BuildParty: this.ReadHotkey(
+            BuildParty: this.ReadOptionalHotkey(
                 configPath,
-                "BuildParty",
-                "XButton1"
+                "BuildParty"
             ),
-
-            RebuildParty: this.ReadHotkey(
+            RebuildParty: this.ReadOptionalHotkey(
                 configPath,
-                "RebuildParty",
-                "XButton2"
+                "RebuildParty"
             ),
-
             ToggleMirror: this.ReadOptionalHotkey(
                 configPath,
                 "ToggleMirror"
             ),
-
-            ClearRegistrations: this.ReadHotkey(
+            ClearRegistrations: this.ReadOptionalHotkey(
                 configPath,
-                "ClearRegistrations",
-                "^F3"
+                "ClearRegistrations"
             ),
-
-            ExitController: this.ReadHotkey(
+            ExitController: this.ReadOptionalHotkey(
                 configPath,
-                "ExitController",
-                "^!F12"
+                "ExitController"
             )
         }
 
@@ -146,12 +102,6 @@ class Configuration
         return hotkeys
     }
 
-    /**
-     * Lê um atalho da seção [Hotkeys].
-     *
-     * Remove espaços no início e no fim. Caso o valor esteja
-     * vazio, utiliza o atalho padrão informado.
-     */
     static ReadHotkey(configPath, key, defaultValue)
     {
         value := IniRead(
@@ -222,9 +172,7 @@ class Configuration
                     . "`n`nAtalho: " hotkeyValue
                     . "`nComando 1: " registered[normalizedValue]
                     . "`nComando 2: " description
-                    . "`n`nCorrija a seção [Hotkeys] "
-                    . "do Characters.ini."
-                    . "`n`nO controller será fechado.",
+                    . "`n`nUse atalhos diferentes para cada comando.",
                     "Erro nos atalhos"
                 )
 
@@ -239,12 +187,12 @@ class Configuration
 
     static GetMuleName(configPath, slot)
     {
-        return IniRead(
+        return Trim(IniRead(
             configPath,
             "Mule" slot,
             "Name",
-            "Mula " slot
-        )
+            ""
+        ))
     }
 
     static GetMuleCoordinates(configPath, slot)
@@ -337,7 +285,7 @@ class Configuration
                     . registeredWindows[mule.Hwnd]
                     . "`nTambém cadastrada como: "
                     . mule.Name
-                    . "`n`nUse Ctrl + F3 e cadastre novamente.",
+                    . "`n`nLimpe os cadastros e registre novamente.",
                     "PW Controller"
                 )
                 return false
@@ -398,7 +346,7 @@ class Configuration
         {
             MsgBox(
                 "Nenhuma mula foi registrada.`n`n"
-                . "Registre as mulas com F3 antes de remontar a PT.",
+                . "Registre as mulas antes de remontar a PT.",
                 "PW Controller"
             )
             return false
@@ -595,6 +543,390 @@ class Configuration
             MuleDelay: muleDelay,
             Mules: preparedMules
         }
+    }
+
+    /**
+     * Carrega a sequência personalizada do comando Seguir líder.
+     */
+    static LoadFollowActions(configPath)
+    {
+        count := this.ReadNonNegativeInteger(
+            configPath,
+            "FollowSequence",
+            "Count",
+            0
+        )
+
+        actions := []
+
+        Loop count
+        {
+            section := "FollowAction" A_Index
+
+            enabledValue := IniRead(
+                configPath,
+                section,
+                "Enabled",
+                1
+            )
+
+            actions.Push({
+                Enabled: enabledValue != 0,
+                MuleSlot: this.ReadNonNegativeInteger(
+                    configPath,
+                    section,
+                    "MuleSlot",
+                    1
+                ),
+                Type: Trim(IniRead(
+                    configPath,
+                    section,
+                    "Type",
+                    "Click"
+                )),
+                Button: Trim(IniRead(
+                    configPath,
+                    section,
+                    "Button",
+                    "Left"
+                )),
+                X: this.ReadNonNegativeInteger(
+                    configPath,
+                    section,
+                    "X",
+                    0
+                ),
+                Y: this.ReadNonNegativeInteger(
+                    configPath,
+                    section,
+                    "Y",
+                    0
+                ),
+                Key: Trim(IniRead(
+                    configPath,
+                    section,
+                    "Key",
+                    ""
+                )),
+                Delay: this.ReadNonNegativeInteger(
+                    configPath,
+                    section,
+                    "Delay",
+                    100
+                )
+            })
+        }
+
+        return actions
+    }
+
+    /**
+     * Salva a sequência completa e remove seções antigas que sobraram.
+     */
+    static SaveFollowActions(configPath, actions)
+    {
+        oldCount := this.ReadNonNegativeInteger(
+            configPath,
+            "FollowSequence",
+            "Count",
+            0
+        )
+
+        maxCount := Max(oldCount, actions.Length)
+
+        Loop maxCount
+        {
+            section := "FollowAction" A_Index
+            try IniDelete(configPath, section)
+        }
+
+        IniWrite(
+            actions.Length,
+            configPath,
+            "FollowSequence",
+            "Count"
+        )
+
+        for index, action in actions
+        {
+            section := "FollowAction" index
+
+            IniWrite(
+                action.Enabled ? 1 : 0,
+                configPath,
+                section,
+                "Enabled"
+            )
+            IniWrite(action.MuleSlot, configPath, section, "MuleSlot")
+            IniWrite(action.Type, configPath, section, "Type")
+            IniWrite(action.Button, configPath, section, "Button")
+            IniWrite(action.X, configPath, section, "X")
+            IniWrite(action.Y, configPath, section, "Y")
+            IniWrite(action.Key, configPath, section, "Key")
+            IniWrite(action.Delay, configPath, section, "Delay")
+        }
+
+        return true
+    }
+
+    /**
+     * Salva os atalhos editados pela interface.
+     */
+    static SaveHotkeys(configPath, hotkeys, allowEmpty := false)
+    {
+        properties := [
+            "RegisterLeader",
+            "RegisterMule",
+            "NextWindow",
+            "ShowStatus",
+            "BuildParty",
+            "RebuildParty",
+            "ToggleMirror",
+            "ClearRegistrations",
+            "ExitController"
+        ]
+
+        configuredCount := 0
+
+        for propertyName in properties
+        {
+            if Trim(hotkeys.%propertyName%) != ""
+                configuredCount += 1
+        }
+
+        if configuredCount = 0 && !allowEmpty
+        {
+            MsgBox(
+                "Configure pelo menos um atalho antes de salvar.`n`n"
+                . "Nenhuma tecla é preenchida automaticamente.",
+                "PW Controller"
+            )
+            return false
+        }
+
+        if !this.ValidateHotkeys(hotkeys)
+            return false
+
+        for propertyName in properties
+        {
+            IniWrite(
+                Trim(hotkeys.%propertyName%),
+                configPath,
+                "Hotkeys",
+                propertyName
+            )
+        }
+
+        IniWrite(
+            configuredCount > 0 ? 1 : 0,
+            configPath,
+            "Setup",
+            "HotkeysConfigured"
+        )
+        return true
+    }
+
+    static LoadGeneralEditor(configPath)
+    {
+        return {
+            NotificationX: IniRead(configPath, "General", "NotificationX", 0),
+            NotificationY: IniRead(configPath, "General", "NotificationY", 0),
+            InviteDelay: IniRead(configPath, "General", "InviteDelay", 150),
+            BeforeAcceptDelay: IniRead(configPath, "General", "BeforeAcceptDelay", 300),
+            AcceptDelay: IniRead(configPath, "General", "AcceptDelay", 150),
+            KickX: IniRead(configPath, "General", "KickX", 0),
+            KickY: IniRead(configPath, "General", "KickY", 0),
+            TransferLeaderX: IniRead(configPath, "General", "TransferLeaderX", 0),
+            TransferLeaderY: IniRead(configPath, "General", "TransferLeaderY", 0),
+            LeavePartyX: IniRead(configPath, "General", "LeavePartyX", 0),
+            LeavePartyY: IniRead(configPath, "General", "LeavePartyY", 0),
+            PartySelectDelay: IniRead(configPath, "General", "PartySelectDelay", 100),
+            PartyKickDelay: IniRead(configPath, "General", "PartyKickDelay", 50),
+            PartyTransferDelay: IniRead(configPath, "General", "PartyTransferDelay", 300),
+            PartyBeforeLeaveDelay: IniRead(configPath, "General", "PartyBeforeLeaveDelay", 400),
+            PartyLeaveDelay: IniRead(configPath, "General", "PartyLeaveDelay", 300)
+        }
+    }
+
+    static SaveGeneralEditor(configPath, values)
+    {
+        keys := [
+            "NotificationX",
+            "NotificationY",
+            "InviteDelay",
+            "BeforeAcceptDelay",
+            "AcceptDelay",
+            "KickX",
+            "KickY",
+            "TransferLeaderX",
+            "TransferLeaderY",
+            "LeavePartyX",
+            "LeavePartyY",
+            "PartySelectDelay",
+            "PartyKickDelay",
+            "PartyTransferDelay",
+            "PartyBeforeLeaveDelay",
+            "PartyLeaveDelay"
+        ]
+
+        for key in keys
+        {
+            value := Trim(values.%key%)
+
+            if !IsNumber(value) || Integer(value) < 0
+            {
+                MsgBox(
+                    "O campo " key " deve ser um número inteiro maior ou igual a zero.",
+                    "PW Controller"
+                )
+                return false
+            }
+        }
+
+        for key in keys
+            IniWrite(Integer(values.%key%), configPath, "General", key)
+
+        return true
+    }
+
+    static LoadMuleEditor(configPath, slot)
+    {
+        coordinates := this.GetMuleCoordinates(configPath, slot)
+
+        return {
+            Name: this.GetMuleName(configPath, slot),
+            FriendX: coordinates.FriendX,
+            FriendY: coordinates.FriendY,
+            InviteX: coordinates.InviteX,
+            InviteY: coordinates.InviteY,
+            PartyX: coordinates.PartyX,
+            PartyY: coordinates.PartyY
+        }
+    }
+
+    static SaveMuleEditor(configPath, slot, values)
+    {
+        if slot < 1 || slot > 9
+            return false
+
+        name := Trim(values.Name)
+
+        if name = ""
+        {
+            MsgBox(
+                "Informe o nome da mula.",
+                "PW Controller"
+            )
+            return false
+        }
+
+        labels := Map(
+            "FriendX", "posição do nome na lista de amigos (X)",
+            "FriendY", "posição do nome na lista de amigos (Y)",
+            "InviteX", "botão Convidar do menu (X)",
+            "InviteY", "botão Convidar do menu (Y)",
+            "PartyX", "posição da mula na lista da PT (X)",
+            "PartyY", "posição da mula na lista da PT (Y)"
+        )
+
+        for key, description in labels
+        {
+            value := Trim(values.%key%)
+
+            if !IsNumber(value) || Integer(value) <= 0
+            {
+                MsgBox(
+                    "Configure a " description ".`n`n"
+                    . "Use o botão Capturar para preencher as coordenadas.",
+                    "PW Controller"
+                )
+                return false
+            }
+        }
+
+        section := "Mule" slot
+        IniWrite(name, configPath, section, "Name")
+
+        for key, description in labels
+            IniWrite(Integer(values.%key%), configPath, section, key)
+
+        return true
+    }
+
+    static GetMuleChoices(configPath)
+    {
+        choices := []
+
+        Loop 9
+        {
+            slot := A_Index
+            name := this.GetMuleName(configPath, slot)
+
+            if name = ""
+                choices.Push("Mula " slot " — não configurada")
+            else
+                choices.Push("Mula " slot " — " name)
+        }
+
+        return choices
+    }
+
+    static HasConfiguredHotkeys(configPath)
+    {
+        if IniRead(
+            configPath,
+            "Setup",
+            "HotkeysConfigured",
+            0
+        ) != 0
+        {
+            return true
+        }
+
+        properties := [
+            "RegisterLeader",
+            "RegisterMule",
+            "NextWindow",
+            "ShowStatus",
+            "BuildParty",
+            "RebuildParty",
+            "ToggleMirror",
+            "ClearRegistrations",
+            "ExitController"
+        ]
+
+        for propertyName in properties
+        {
+            if Trim(IniRead(
+                configPath,
+                "Hotkeys",
+                propertyName,
+                ""
+            )) != ""
+            {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    static IsMuleConfigured(configPath, slot)
+    {
+        if slot < 1 || slot > 9
+            return false
+
+        if this.GetMuleName(configPath, slot) = ""
+            return false
+
+        coordinates := this.GetMuleCoordinates(configPath, slot)
+
+        return coordinates.FriendX > 0
+            && coordinates.FriendY > 0
+            && coordinates.InviteX > 0
+            && coordinates.InviteY > 0
+            && coordinates.PartyX > 0
+            && coordinates.PartyY > 0
     }
 
     static ReadNonNegativeInteger(
