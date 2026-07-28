@@ -2,6 +2,7 @@
 #SingleInstance Force
 
 #Include "Modules\Configuration.ahk"
+#Include "Modules\FloatingPanel.ahk"
 #Include "Modules\Party.ahk"
 #Include "Modules\PartyManagement.ahk"
 #Include "Modules\MouseMirror.ahk"
@@ -64,7 +65,8 @@ catch Error as err
     ExitApp
 }
 
-ShowStartupMessage()
+FloatingPanel.Show(ControllerHotkeys)
+;ShowStartupMessage()
 
 /**
  * Registra todos os atalhos do controller.
@@ -1126,5 +1128,5 @@ ShowStartupMessage()
         . " = fechar"
     )
 
-    SetTimer(() => ToolTip(), -5500)
+    SetTimer(() => ToolTip(), -1500)
 }
