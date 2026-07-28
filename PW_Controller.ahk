@@ -65,7 +65,7 @@ catch Error as err
     ExitApp
 }
 
-FloatingPanel.Show(ControllerHotkeys)
+FloatingPanel.Show(ControllerHotkeys, ToggleMouseMirror, MouseMirror.IsEnabled())
 ;ShowStartupMessage()
 
 /**
@@ -109,10 +109,15 @@ RegisterControllerHotkeys()
         RebuildParty
     )
 
-    Hotkey(
-        ControllerHotkeys.ToggleMirror,
-        ToggleMouseMirror
-    )
+    ; O espelhamento não possui atalho padrão.
+    ; Registra somente quando houver um valor no Characters.ini.
+    if ControllerHotkeys.ToggleMirror != ""
+    {
+        Hotkey(
+            ControllerHotkeys.ToggleMirror,
+            ToggleMouseMirror
+        )
+    }
 
     Hotkey(
         ControllerHotkeys.ClearRegistrations,
@@ -463,8 +468,10 @@ ShowControllerStatus(*)
     status .= "`n" ControllerHotkeys.RebuildParty
     status .= " = desmontar/remontar PT"
 
-    status .= "`n" ControllerHotkeys.ToggleMirror
-    status .= " = ativar/desativar espelhamento"
+    status .= "`nAtalho do espelhamento: "
+    status .= ControllerHotkeys.ToggleMirror != ""
+        ? FloatingPanel.FormatHotkey(ControllerHotkeys.ToggleMirror)
+        : "não configurado"
 
     status .= "`nEspelhamento: "
     status .= MouseMirror.IsEnabled()
@@ -875,7 +882,7 @@ RebuildParty(*)
 }
 
 ; =========================================================
-; MButton — ATIVAR/DESATIVAR ESPELHAMENTO DE CLIQUES
+; BOTÃO/ATALHO OPCIONAL — ATIVAR/DESATIVAR ESPELHAMENTO
 ;
 ; Quando ativado, cliques físicos feitos no líder ou em uma
 ; mula cadastrada são repetidos nas demais janelas abertas.
@@ -884,6 +891,7 @@ RebuildParty(*)
 ToggleMouseMirror(*)
 {
     enabled := MouseMirror.Toggle()
+    FloatingPanel.UpdateMirrorStatus(enabled)
 
     if enabled
     {
@@ -1120,8 +1128,9 @@ ShowStartupMessage()
         . " = montar PT"
         . "`n" ControllerHotkeys.RebuildParty
         . " = remontar PT"
-        . "`n" ControllerHotkeys.ToggleMirror
-        . " = espelhamento"
+        . "`n" (ControllerHotkeys.ToggleMirror != ""
+            ? ControllerHotkeys.ToggleMirror " = espelhamento"
+            : "Espelhamento = usar botão da janela")
         . "`n" ControllerHotkeys.ClearRegistrations
         . " = limpar cadastros"
         . "`n" ControllerHotkeys.ExitController

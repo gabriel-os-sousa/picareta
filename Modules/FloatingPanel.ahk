@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 
 /**
  * Janela flutuante do PW Controller.
@@ -9,18 +9,20 @@
 class FloatingPanel
 {
     static Window := false
+    static MirrorStatusText := false
+    static MirrorToggleButton := false
 
     /**
      * Cria e exibe a janela flutuante.
      *
-     * A barra de título padrão permite mover a janela livremente.
-     * +AlwaysOnTop mantém a janela acima dos clientes do jogo.
-     * +ToolWindow evita criar outro botão na barra de tarefas.
+     * O callback recebido utiliza a mesma função responsável pelo atalho,
+     * mantendo em um único lugar a alteração do estado e do ícone da bandeja.
      */
-    static Show(hotkeys)
+    static Show(hotkeys, toggleMirrorCallback, mirrorEnabled := false)
     {
         if this.Window
         {
+            this.UpdateMirrorStatus(mirrorEnabled)
             this.Window.Show("NoActivate")
             return
         }
@@ -47,7 +49,34 @@ class FloatingPanel
         )
 
         panel.AddText(
-            "xm y+10 w270 Center cGray",
+            "xm y+12 w270 0x10"
+        )
+
+        panel.SetFont("s10 bold", "Segoe UI")
+        panel.AddText(
+            "xm y+10 w270 Center",
+            "ESPELHAMENTO DE CLIQUES"
+        )
+
+        panel.SetFont("s9", "Segoe UI")
+
+        this.MirrorStatusText := panel.AddText(
+            "xm y+8 w270 Center",
+            ""
+        )
+
+        this.MirrorToggleButton := panel.AddButton(
+            "xm y+8 w270 h32",
+            ""
+        )
+
+        this.MirrorToggleButton.OnEvent(
+            "Click",
+            toggleMirrorCallback
+        )
+
+        panel.AddText(
+            "xm y+12 w270 Center cGray",
             "Arraste pela barra de título para mover"
         )
 
@@ -56,8 +85,29 @@ class FloatingPanel
         panel.OnEvent("Close", (guiObject, *) => guiObject.Hide())
 
         this.Window := panel
+        this.UpdateMirrorStatus(mirrorEnabled)
 
         panel.Show("AutoSize NoActivate")
+    }
+
+    /**
+     * Atualiza o aviso e o texto do botão sem recriar a janela.
+     */
+    static UpdateMirrorStatus(enabled)
+    {
+        if !this.MirrorStatusText || !this.MirrorToggleButton
+            return
+
+        if enabled
+        {
+            this.MirrorStatusText.Text := "Status: ATIVADO"
+            this.MirrorToggleButton.Text := "Desativar espelhamento"
+        }
+        else
+        {
+            this.MirrorStatusText.Text := "Status: DESATIVADO"
+            this.MirrorToggleButton.Text := "Ativar espelhamento"
+        }
     }
 
     /**
@@ -80,7 +130,10 @@ class FloatingPanel
 
     static FormatHotkey(hotkey)
     {
-        hk := hotkey
+        hk := Trim(hotkey)
+
+        if hk = ""
+            return "Não configurado"
 
         ; Modificadores
         hk := StrReplace(hk, "^", "Ctrl + ")
@@ -89,8 +142,8 @@ class FloatingPanel
         hk := StrReplace(hk, "#", "Win + ")
 
         ; Mouse
-        hk := StrReplace(hk, "XButton1", "Botão lateral - frente")
-        hk := StrReplace(hk, "XButton2", "Botão lateral - trás")
+        hk := StrReplace(hk, "XButton1", "Botão lateral traseiro")
+        hk := StrReplace(hk, "XButton2", "Botão lateral dianteiro")
         hk := StrReplace(hk, "MButton", "Botão do meio")
         hk := StrReplace(hk, "LButton", "Botão esquerdo")
         hk := StrReplace(hk, "RButton", "Botão direito")

@@ -122,10 +122,9 @@ class Configuration
                 "XButton2"
             ),
 
-            ToggleMirror: this.ReadHotkey(
+            ToggleMirror: this.ReadOptionalHotkey(
                 configPath,
-                "ToggleMirror",
-                "MButton"
+                "ToggleMirror"
             ),
 
             ClearRegistrations: this.ReadHotkey(
@@ -170,6 +169,22 @@ class Configuration
         return value
     }
 
+    /**
+     * Lê um atalho opcional. Quando a chave não existe ou está vazia,
+     * nenhum atalho é registrado para o comando.
+     */
+    static ReadOptionalHotkey(configPath, key)
+    {
+        value := IniRead(
+            configPath,
+            "Hotkeys",
+            key,
+            ""
+        )
+
+        return Trim(value)
+    }
+
 
     /**
      * Verifica se dois comandos foram configurados
@@ -195,6 +210,10 @@ class Configuration
         {
             hotkeyValue := hotkeys.%propertyName%
             normalizedValue := StrLower(Trim(hotkeyValue))
+
+            ; Atalhos opcionais vazios não participam da validação.
+            if normalizedValue = ""
+                continue
 
             if registered.Has(normalizedValue)
             {
