@@ -29,6 +29,15 @@ global AcceptDelay := 150
 ; Atalhos carregados da seção [Hotkeys].
 global ControllerHotkeys := false
 
+/**
+ * Exibe avisos e confirmações sempre acima da janela da Picareta.
+ * Também funciona durante a inicialização, antes de o painel existir.
+ */
+PicaretaDialog(message, title := "Picareta", options := "")
+{
+    return FloatingPanel.ShowDialog(message, title, options)
+}
+
 ; =========================================================
 ; INICIALIZAÇÃO
 ; =========================================================
@@ -55,12 +64,12 @@ try
 }
 catch Error as err
 {
-    MsgBox(
+    PicaretaDialog(
         "Não foi possível registrar os atalhos."
         . "`n`nMensagem: " err.Message
         . "`n`nVerifique a seção [Hotkeys] "
         . "do Characters.ini."
-        . "`n`nO controller será fechado.",
+        . "`n`nA Picareta será fechada.",
         "Erro nos atalhos"
     )
 
@@ -72,6 +81,9 @@ FloatingPanel.Show(
     ControllerHotkeys,
     ToggleMouseMirror,
     FollowLeaderWithMules,
+    BuildParty,
+    RebuildParty,
+    ClearRegistrations,
     GetRegisteredMules,
     GetRegisteredLeader,
     ApplyHotkeyConfiguration,
@@ -193,7 +205,7 @@ ApplyHotkeyConfiguration(newHotkeys, *)
         try RegisterControllerHotkeys()
         try Configuration.SaveHotkeys(ConfigPath, oldHotkeys, true)
 
-        MsgBox(
+        PicaretaDialog(
             "Não foi possível aplicar os novos atalhos."
             . "`n`nMensagem: " err.Message
             . "`n`nOs atalhos anteriores foram restaurados.",
@@ -252,7 +264,7 @@ RegisterLeader(*)
 
     if !hwnd
     {
-        MsgBox(
+        PicaretaDialog(
             "A janela ativa não é um cliente válido "
             . "do Perfect World.`n`n"
             . "Ative a janela do personagem principal e use o atalho "
@@ -260,7 +272,7 @@ RegisterLeader(*)
                 ControllerHotkeys.RegisterLeader
             )
             . ".",
-            "PW Controller"
+            "Picareta"
         )
         return
     }
@@ -275,12 +287,12 @@ RegisterLeader(*)
                 )
                 : "não configurado"
 
-            MsgBox(
+            PicaretaDialog(
                 "Essa janela já está cadastrada como "
                 . registeredMule.Name
                 . ".`n`nUse o atalho " clearText
                 . " e comece novamente.",
-                "PW Controller"
+                "Picareta"
             )
             return
         }
@@ -324,10 +336,10 @@ RegisterMule(*)
 
     if !LeaderHwnd
     {
-        MsgBox(
+        PicaretaDialog(
             "O líder ainda não foi cadastrado.`n`n"
             . "Cadastre primeiro a janela do personagem principal.",
-            "PW Controller"
+            "Picareta"
         )
         return
     }
@@ -336,20 +348,20 @@ RegisterMule(*)
 
     if !hwnd
     {
-        MsgBox(
+        PicaretaDialog(
             "Nenhuma janela válida do Perfect World foi encontrada.`n`n"
             . "Ative a janela da mula e use o atalho configurado.",
-            "PW Controller"
+            "Picareta"
         )
         return
     }
 
     if hwnd = LeaderHwnd
     {
-        MsgBox(
+        PicaretaDialog(
             "Essa janela está cadastrada como líder.`n`n"
             . "Ative a janela da mula e tente novamente.",
-            "PW Controller"
+            "Picareta"
         )
         return
     }
@@ -358,11 +370,11 @@ RegisterMule(*)
     {
         if registeredMule.Hwnd = hwnd
         {
-            MsgBox(
+            PicaretaDialog(
                 "Essa janela já está cadastrada como "
                 . registeredMule.Name
                 . ".`n`nHWND: " hwnd,
-                "PW Controller"
+                "Picareta"
             )
             return
         }
@@ -372,19 +384,19 @@ RegisterMule(*)
 
     if slot > 9
     {
-        MsgBox(
+        PicaretaDialog(
             "As 9 mulas já foram cadastradas.",
-            "PW Controller"
+            "Picareta"
         )
         return
     }
 
     if !Configuration.IsMuleConfigured(ConfigPath, slot)
     {
-        MsgBox(
+        PicaretaDialog(
             "A Mula " slot " ainda não possui todos os dados configurados.`n`n"
-            . "Preencha o nome e capture as três posições na aba Mulas.",
-            "PW Controller"
+            . "Preencha o nome e capture as duas posições na aba Mulas.",
+            "Picareta"
         )
 
         FloatingPanel.OpenMulesTab(slot)
@@ -517,7 +529,7 @@ ShowControllerStatus(*)
     global NotificationY
     global ControllerHotkeys
 
-    status := "STATUS DO PW CONTROLLER"
+    status := "STATUS DA PICARETA"
     status .= "`n============================"
 
     ; Situação do líder.
@@ -622,9 +634,9 @@ ShowControllerStatus(*)
     status .= "`n" FloatingPanel.FormatHotkey(
         ControllerHotkeys.ExitController
     )
-    status .= " = fechar controller"
+    status .= " = fechar Picareta"
 
-    FloatingPanel.ShowDialog(status, "PW Controller")
+    FloatingPanel.ShowDialog(status, "Picareta")
 }
 
 ; =========================================================
@@ -671,10 +683,10 @@ FollowLeaderWithMules(*)
     }
     catch Error as err
     {
-        MsgBox(
+        PicaretaDialog(
             "Não foi possível iniciar o comando Seguir líder."
             . "`n`nMensagem: " err.Message,
-            "PW Controller"
+            "Picareta"
         )
         return
     }
@@ -695,10 +707,10 @@ FollowLeaderWithMules(*)
         {
             ToolTip()
 
-            MsgBox(
+            PicaretaDialog(
                 "Erro na ação " index " de " action.MuleName
                 . ".`n`nMensagem: " err.Message,
-                "Erro no PW Controller"
+                "Erro na Picareta"
             )
             return
         }
@@ -762,10 +774,10 @@ BuildParty(*)
         {
             ToolTip()
 
-            MsgBox(
+            PicaretaDialog(
                 "A janela do líder foi fechada "
                 . "durante o envio dos convites.",
-                "PW Controller"
+                "Picareta"
             )
             return
         }
@@ -774,10 +786,10 @@ BuildParty(*)
         {
             ToolTip()
 
-            MsgBox(
+            PicaretaDialog(
                 "A janela de " muleData.Name
                 . " foi fechada antes do convite.",
-                "PW Controller"
+                "Picareta"
             )
             return
         }
@@ -803,12 +815,12 @@ BuildParty(*)
         {
             ToolTip()
 
-            MsgBox(
+            PicaretaDialog(
                 "Erro ao convidar "
                 . muleData.Name
                 . ".`n`n"
                 . "Mensagem: " err.Message,
-                "Erro no PW Controller"
+                "Erro na Picareta"
             )
             return
         }
@@ -845,10 +857,10 @@ BuildParty(*)
         {
             ToolTip()
 
-            MsgBox(
+            PicaretaDialog(
                 "A janela de " muleData.Name
                 . " foi fechada antes do aceite.",
-                "PW Controller"
+                "Picareta"
             )
             return
         }
@@ -872,12 +884,12 @@ BuildParty(*)
         {
             ToolTip()
 
-            MsgBox(
+            PicaretaDialog(
                 "Erro ao aceitar o convite em "
                 . muleData.Name
                 . ".`n`n"
                 . "Mensagem: " err.Message,
-                "Erro no PW Controller"
+                "Erro na Picareta"
             )
             return
         }
@@ -911,14 +923,14 @@ RebuildParty(*)
 
     if !LeaderHwnd
     {
-        MsgBox(
+        PicaretaDialog(
             "O personagem principal não foi registrado.`n`n"
             . "Ative a janela do personagem principal e use o atalho "
             . FloatingPanel.FormatHotkey(
                 ControllerHotkeys.RegisterLeader
             )
             . ".",
-            "PW Controller"
+            "Picareta"
         )
 
         return
@@ -926,10 +938,10 @@ RebuildParty(*)
 
     if !PWWindows.IsOpen(LeaderHwnd)
     {
-        MsgBox(
+        PicaretaDialog(
             "A janela do personagem principal "
             . "não está mais aberta.",
-            "PW Controller"
+            "Picareta"
         )
 
         return
@@ -948,16 +960,19 @@ RebuildParty(*)
 
     if memberCount < 1
     {
-        MsgBox(
+        PicaretaDialog(
             "Nenhuma mula foi encontrada para remontar a PT.",
-            "PW Controller"
+            "Picareta"
         )
 
         return
     }
 
-    ; Evita apertar XButton2 novamente durante o processo.
-    Hotkey ControllerHotkeys.RebuildParty, "Off"
+    ; Desativa temporariamente apenas quando existe um atalho configurado.
+    rebuildHotkey := Trim(ControllerHotkeys.RebuildParty)
+
+    if rebuildHotkey != ""
+        Hotkey(rebuildHotkey, "Off")
 
     try
     {
@@ -1098,15 +1113,16 @@ RebuildParty(*)
     {
         ToolTip()
 
-        MsgBox(
+        PicaretaDialog(
             "Erro ao remontar a PT.`n`n"
             . "Mensagem: " err.Message,
-            "Erro no PW Controller"
+            "Erro na Picareta"
         )
     }
     finally
     {
-        Hotkey ControllerHotkeys.RebuildParty, "On"
+        if rebuildHotkey != ""
+            Hotkey(rebuildHotkey, "On")
     }
 }
 
@@ -1354,7 +1370,7 @@ ShowStartupMessage()
     global ControllerHotkeys
 
     ToolTip(
-        "PW CONTROLLER INICIADO"
+        "PICARETA INICIADA"
         . "`n`n" FloatingPanel.FormatHotkey(ControllerHotkeys.RegisterLeader)
         . " = cadastrar principal"
         . "`n" FloatingPanel.FormatHotkey(ControllerHotkeys.RegisterMule)

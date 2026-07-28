@@ -11,7 +11,7 @@ class MouseMirror
         if this.Enabled
         {
             TraySetIcon "shell32.dll", 44
-            A_IconTip := "PW Controller — Espelhamento ATIVADO"
+            A_IconTip := "Picareta — Espelhamento ATIVADO"
 
             ToolTip "ESPELHAMENTO ATIVADO"
             SetTimer () => ToolTip(), -1200
@@ -19,7 +19,7 @@ class MouseMirror
         else
         {
             TraySetIcon "shell32.dll", 131
-            A_IconTip := "PW Controller — Espelhamento desativado"
+            A_IconTip := "Picareta — Espelhamento desativado"
 
             ToolTip "Espelhamento desativado"
             SetTimer () => ToolTip(), -1200

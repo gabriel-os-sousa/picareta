@@ -6,11 +6,11 @@ class Configuration
     {
         if !FileExist(configPath)
         {
-            MsgBox(
+            PicaretaDialog(
                 "Arquivo de configuração não encontrado:`n`n"
                 . configPath
-                . "`n`nO controller será fechado.",
-                "PW Controller"
+                . "`n`nA Picareta será fechada.",
+                "Picareta"
             )
 
             return false
@@ -153,7 +153,7 @@ class Configuration
             "RebuildParty", "Remontar PT",
             "ToggleMirror", "Alternar espelhamento",
             "ClearRegistrations", "Limpar cadastros",
-            "ExitController", "Fechar controller"
+            "ExitController", "Fechar Picareta"
         )
 
         for propertyName, description in descriptions
@@ -167,7 +167,7 @@ class Configuration
 
             if registered.Has(normalizedValue)
             {
-                MsgBox(
+                PicaretaDialog(
                     "Existem dois comandos utilizando o mesmo atalho."
                     . "`n`nAtalho: " hotkeyValue
                     . "`nComando 1: " registered[normalizedValue]
@@ -209,6 +209,39 @@ class Configuration
         }
     }
 
+    /**
+     * Retorna a coordenada de uma posição fixa da lista da PT.
+     *
+     * As posições pertencem ao layout do grupo, e não a uma mula específica.
+     * Para não quebrar instalações anteriores, valores antigos de MuleN/PartyX
+     * e PartyY são utilizados como migração quando a nova configuração está vazia.
+     */
+    static GetPartyPosition(configPath, position)
+    {
+        if position < 1 || position > 10
+            return {X: 0, Y: 0}
+
+        xKey := "PartyPosition" position "X"
+        yKey := "PartyPosition" position "Y"
+        x := IniRead(configPath, "General", xKey, 0)
+        y := IniRead(configPath, "General", yKey, 0)
+
+        if (x = 0 || y = 0) && position <= 9
+        {
+            legacySection := "Mule" position
+            legacyX := IniRead(configPath, legacySection, "PartyX", 0)
+            legacyY := IniRead(configPath, legacySection, "PartyY", 0)
+
+            if x = 0
+                x := legacyX
+
+            if y = 0
+                y := legacyY
+        }
+
+        return {X: x, Y: y}
+    }
+
     static ValidateParty(
         configPath,
         leaderHwnd,
@@ -219,40 +252,40 @@ class Configuration
     {
         if !leaderHwnd
         {
-            MsgBox(
+            PicaretaDialog(
                 "O líder ainda não foi cadastrado.`n`n"
                 . "Cadastre primeiro a janela do personagem principal.",
-                "PW Controller"
+                "Picareta"
             )
             return false
         }
 
         if !PWWindows.IsOpen(leaderHwnd)
         {
-            MsgBox(
+            PicaretaDialog(
                 "A janela cadastrada como líder foi fechada.`n`n"
                 . "Limpe os cadastros e registre as janelas novamente.",
-                "PW Controller"
+                "Picareta"
             )
             return false
         }
 
         if mules.Length = 0
         {
-            MsgBox(
+            PicaretaDialog(
                 "Nenhuma mula foi cadastrada.`n`n"
                 . "Cadastre pelo menos uma mula.",
-                "PW Controller"
+                "Picareta"
             )
             return false
         }
 
         if notificationX = 0 || notificationY = 0
         {
-            MsgBox(
+            PicaretaDialog(
                 "As coordenadas da notificação não estão "
                 . "configuradas no Characters.ini.",
-                "PW Controller"
+                "Picareta"
             )
             return false
         }
@@ -267,18 +300,18 @@ class Configuration
 
             if !PWWindows.IsOpen(mule.Hwnd)
             {
-                MsgBox(
+                PicaretaDialog(
                     "A janela de " mule.Name
                     . " não está mais aberta.`n`n"
                     . "Limpe os cadastros e registre as janelas novamente.",
-                    "PW Controller"
+                    "Picareta"
                 )
                 return false
             }
 
             if registeredWindows.Has(mule.Hwnd)
             {
-                MsgBox(
+                PicaretaDialog(
                     "Existe uma janela cadastrada duas vezes.`n`n"
                     . "Janela: " mule.Hwnd
                     . "`nJá cadastrada como: "
@@ -286,7 +319,7 @@ class Configuration
                     . "`nTambém cadastrada como: "
                     . mule.Name
                     . "`n`nLimpe os cadastros e registre novamente.",
-                    "PW Controller"
+                    "Picareta"
                 )
                 return false
             }
@@ -296,28 +329,28 @@ class Configuration
 
             if coordinates.FriendX = 0 || coordinates.FriendY = 0
             {
-                MsgBox(
+                PicaretaDialog(
                     "A posição do amigo da " section
                     . " não está configurada.`n`n"
                     . "Verifique no Characters.ini:`n"
                     . "[" section "]`n"
                     . "FriendX=...`n"
                     . "FriendY=...",
-                    "PW Controller"
+                    "Picareta"
                 )
                 return false
             }
 
             if coordinates.InviteX = 0 || coordinates.InviteY = 0
             {
-                MsgBox(
+                PicaretaDialog(
                     "A posição do botão de convite da " section
                     . " não está configurada.`n`n"
                     . "Verifique no Characters.ini:`n"
                     . "[" section "]`n"
                     . "InviteX=...`n"
                     . "InviteY=...",
-                    "PW Controller"
+                    "Picareta"
                 )
                 return false
             }
@@ -344,10 +377,10 @@ class Configuration
     {
         if mules.Length < 1
         {
-            MsgBox(
+            PicaretaDialog(
                 "Nenhuma mula foi registrada.`n`n"
                 . "Registre as mulas antes de remontar a PT.",
-                "PW Controller"
+                "Picareta"
             )
             return false
         }
@@ -377,11 +410,7 @@ class Configuration
 
         if kickX = 0 || kickY = 0
         {
-            this.ShowCoordinateError(
-                "botão Expulsar",
-                "KickX",
-                "KickY"
-            )
+            this.ShowCoordinateError("botão Expulsar", "KickX", "KickY")
             return false
         }
 
@@ -409,19 +438,14 @@ class Configuration
 
         for index, mule in mules
         {
-            section := "Mule" index
-            coordinates := this.GetMuleCoordinates(configPath, index)
+            position := this.GetPartyPosition(configPath, index)
 
-            if coordinates.PartyX = 0 || coordinates.PartyY = 0
+            if position.X = 0 || position.Y = 0
             {
-                MsgBox(
-                    "A posição na PT de " section
-                    . " não está configurada.`n`n"
-                    . "Configure no Characters.ini:`n"
-                    . "[" section "]`n"
-                    . "PartyX=...`n"
-                    . "PartyY=...",
-                    "PW Controller"
+                PicaretaDialog(
+                    "A posição " index " da lista da PT não está configurada.`n`n"
+                    . "Abra a aba Remontar PT e capture essa posição.",
+                    "Picareta"
                 )
                 return false
             }
@@ -430,8 +454,8 @@ class Configuration
                 Slot: index,
                 Name: mule.Name,
                 Hwnd: mule.Hwnd,
-                PartyX: coordinates.PartyX,
-                PartyY: coordinates.PartyY
+                PartyX: position.X,
+                PartyY: position.Y
             })
         }
 
@@ -460,11 +484,11 @@ class Configuration
     {
         if mules.Length = 0
         {
-            MsgBox(
+            PicaretaDialog(
                 "Nenhuma mula foi cadastrada.`n`n"
                 . "Cadastre pelo menos uma mula antes de usar "
                 . "o comando Seguir líder.",
-                "PW Controller"
+                "Picareta"
             )
 
             return false
@@ -517,12 +541,12 @@ class Configuration
         {
             if !PWWindows.IsOpen(mule.Hwnd)
             {
-                MsgBox(
+                PicaretaDialog(
                     "A janela de " mule.Name
                     . " não está mais aberta.`n`n"
                     . "Limpe os cadastros e registre "
                     . "as janelas novamente.",
-                    "PW Controller"
+                    "Picareta"
                 )
 
                 return false
@@ -696,10 +720,10 @@ class Configuration
 
         if configuredCount = 0 && !allowEmpty
         {
-            MsgBox(
+            PicaretaDialog(
                 "Configure pelo menos um atalho antes de salvar.`n`n"
                 . "Nenhuma tecla é preenchida automaticamente.",
-                "PW Controller"
+                "Picareta"
             )
             return false
         }
@@ -728,7 +752,7 @@ class Configuration
 
     static LoadGeneralEditor(configPath)
     {
-        return {
+        values := {
             NotificationX: IniRead(configPath, "General", "NotificationX", 0),
             NotificationY: IniRead(configPath, "General", "NotificationY", 0),
             InviteDelay: IniRead(configPath, "General", "InviteDelay", 150),
@@ -746,6 +770,17 @@ class Configuration
             PartyBeforeLeaveDelay: IniRead(configPath, "General", "PartyBeforeLeaveDelay", 400),
             PartyLeaveDelay: IniRead(configPath, "General", "PartyLeaveDelay", 300)
         }
+
+        Loop 10
+        {
+            position := this.GetPartyPosition(configPath, A_Index)
+            xKey := "PartyPosition" A_Index "X"
+            yKey := "PartyPosition" A_Index "Y"
+            values.%xKey% := position.X
+            values.%yKey% := position.Y
+        }
+
+        return values
     }
 
     static SaveGeneralEditor(configPath, values)
@@ -769,15 +804,21 @@ class Configuration
             "PartyLeaveDelay"
         ]
 
+        Loop 10
+        {
+            keys.Push("PartyPosition" A_Index "X")
+            keys.Push("PartyPosition" A_Index "Y")
+        }
+
         for key in keys
         {
             value := Trim(values.%key%)
 
             if !IsNumber(value) || Integer(value) < 0
             {
-                MsgBox(
+                PicaretaDialog(
                     "O campo " key " deve ser um número inteiro maior ou igual a zero.",
-                    "PW Controller"
+                    "Picareta"
                 )
                 return false
             }
@@ -798,9 +839,7 @@ class Configuration
             FriendX: coordinates.FriendX,
             FriendY: coordinates.FriendY,
             InviteX: coordinates.InviteX,
-            InviteY: coordinates.InviteY,
-            PartyX: coordinates.PartyX,
-            PartyY: coordinates.PartyY
+            InviteY: coordinates.InviteY
         }
     }
 
@@ -813,10 +852,7 @@ class Configuration
 
         if name = ""
         {
-            MsgBox(
-                "Informe o nome da mula.",
-                "PW Controller"
-            )
+            PicaretaDialog("Informe o nome da mula.", "Picareta")
             return false
         }
 
@@ -824,9 +860,7 @@ class Configuration
             "FriendX", "posição do nome na lista de amigos (X)",
             "FriendY", "posição do nome na lista de amigos (Y)",
             "InviteX", "botão Convidar do menu (X)",
-            "InviteY", "botão Convidar do menu (Y)",
-            "PartyX", "posição da mula na lista da PT (X)",
-            "PartyY", "posição da mula na lista da PT (Y)"
+            "InviteY", "botão Convidar do menu (Y)"
         )
 
         for key, description in labels
@@ -835,10 +869,10 @@ class Configuration
 
             if !IsNumber(value) || Integer(value) <= 0
             {
-                MsgBox(
+                PicaretaDialog(
                     "Configure a " description ".`n`n"
                     . "Use o botão Capturar para preencher as coordenadas.",
-                    "PW Controller"
+                    "Picareta"
                 )
                 return false
             }
@@ -925,8 +959,6 @@ class Configuration
             && coordinates.FriendY > 0
             && coordinates.InviteX > 0
             && coordinates.InviteY > 0
-            && coordinates.PartyX > 0
-            && coordinates.PartyY > 0
     }
 
     static ReadNonNegativeInteger(
@@ -956,13 +988,13 @@ class Configuration
 
     static ShowCoordinateError(description, xKey, yKey)
     {
-        MsgBox(
+        PicaretaDialog(
             "As coordenadas do " description
             . " não estão configuradas.`n`n"
             . "Configure no Characters.ini:`n"
             . xKey "=...`n"
             . yKey "=...",
-            "PW Controller"
+            "Picareta"
         )
     }
 }

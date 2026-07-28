@@ -22,18 +22,18 @@ class CoordinateCapture
     {
         if this.Active
         {
-            MsgBox(
+            PicaretaDialog(
                 "Já existe uma captura de coordenadas em andamento.",
-                "PW Controller"
+                "Picareta"
             )
             return false
         }
 
         if !PWWindows.IsOpen(targetHwnd)
         {
-            MsgBox(
+            PicaretaDialog(
                 "A janela selecionada não está mais aberta.",
-                "PW Controller"
+                "Picareta"
             )
             return false
         }
@@ -55,9 +55,9 @@ class CoordinateCapture
         {
             this.Stop()
 
-            MsgBox(
+            PicaretaDialog(
                 "Não foi possível ativar a janela selecionada.",
-                "PW Controller"
+                "Picareta"
             )
             return false
         }

@@ -1,7 +1,7 @@
 ﻿#Requires AutoHotkey v2.0
 
 /**
- * Painel principal do PW Controller.
+ * Painel principal do Picareta.
  *
  * No modo compacto, mostra apenas os comandos de uso frequente.
  * No modo expandido, exibe as configurações do sistema.
@@ -15,6 +15,9 @@ class FloatingPanel
 
     static ToggleMirrorCallback := false
     static FollowLeaderCallback := false
+    static BuildPartyCallback := false
+    static RebuildPartyCallback := false
+    static ClearRegistrationsCallback := false
     static GetMulesCallback := false
     static GetLeaderCallback := false
     static ApplyHotkeysCallback := false
@@ -29,7 +32,24 @@ class FloatingPanel
 
     static HotkeyEdits := Map()
     static HotkeySetupNotice := false
+    static HotkeySpecialLabels := [
+        "Nenhum",
+        "Botão do meio",
+        "Lateral traseiro",
+        "Lateral dianteiro",
+        "Roda para cima",
+        "Roda para baixo"
+    ]
+    static HotkeySpecialCodes := [
+        "",
+        "MButton",
+        "XButton1",
+        "XButton2",
+        "WheelUp",
+        "WheelDown"
+    ]
     static GeneralEdits := Map()
+    static ConfigStatusTexts := []
 
     static MuleSlotDDL := false
     static MuleNameEdit := false
@@ -37,6 +57,11 @@ class FloatingPanel
     static MuleConfigStatusText := false
     static LeaderRegistrationText := false
     static RegisteredMulesList := false
+
+    static PartyPositionList := false
+    static PartyPositionXEdit := false
+    static PartyPositionYEdit := false
+    static SelectedPartyPosition := 0
 
     static FollowActions := []
     static FollowList := false
@@ -52,11 +77,18 @@ class FloatingPanel
     static CaptureButton := false
     static FollowEditorStatus := false
 
+    static HelpMouseMoveCallback := false
+    static LastHelpHwnd := 0
+    static PositionInitialized := false
+
     static Show(
         configPath,
         hotkeys,
         toggleMirrorCallback,
         followLeaderCallback,
+        buildPartyCallback,
+        rebuildPartyCallback,
+        clearRegistrationsCallback,
         getMulesCallback,
         getLeaderCallback,
         applyHotkeysCallback,
@@ -68,6 +100,9 @@ class FloatingPanel
         this.Hotkeys := hotkeys
         this.ToggleMirrorCallback := toggleMirrorCallback
         this.FollowLeaderCallback := followLeaderCallback
+        this.BuildPartyCallback := buildPartyCallback
+        this.RebuildPartyCallback := rebuildPartyCallback
+        this.ClearRegistrationsCallback := clearRegistrationsCallback
         this.GetMulesCallback := getMulesCallback
         this.GetLeaderCallback := getLeaderCallback
         this.ApplyHotkeysCallback := applyHotkeysCallback
@@ -83,13 +118,10 @@ class FloatingPanel
 
         panel := Gui(
             "+AlwaysOnTop +ToolWindow",
-            "PW Controller"
+            "Picareta"
         )
 
-        ; Faz confirmações e avisos abertos pelos controles permanecerem
-        ; na frente do painel, mesmo com o jogo aberto.
-        panel.Opt("+OwnDialogs")
-        panel.BackColor := "F3F7FC"
+        panel.BackColor := "EEF4FA"
         panel.MarginX := 10
         panel.MarginY := 10
         panel.SetFont("s9", "Segoe UI")
@@ -98,16 +130,15 @@ class FloatingPanel
         ; ÁREA COMPACTA
         ; =====================================================
 
-        panel.SetFont("s11 bold", "Segoe UI")
+        panel.SetFont("s12 bold", "Segoe UI")
         panel.AddText(
-            "x10 y10 w290 h34 Center 0x200 Background1F4E78 cFFFFFF",
-            "PW CONTROLLER"
+            "x10 y10 w290 h34 Center 0x200 Background173B57 cFFFFFF",
+            "PICARETA"
         )
 
         panel.SetFont("s9", "Segoe UI")
-
         this.ExpandButton := panel.AddButton(
-            "x10 y52 w290 h30",
+            "x10 y52 w290 h30 -Wrap",
             "Abrir configurações  »"
         )
         this.ExpandButton.OnEvent(
@@ -115,38 +146,52 @@ class FloatingPanel
             (*) => FloatingPanel.ToggleExpanded()
         )
 
-        panel.AddText(
-            "x10 y94 w290 Center c1F4E78",
-            "ESPELHAMENTO DE CLIQUES"
-        )
+        panel.SetFont("s9 bold", "Segoe UI")
 
-        this.MirrorStatusText := panel.AddText(
-            "x10 y116 w290 Center",
-            ""
-        )
-
-        ; Static com SS_NOTIFY funciona como botão e permite mudar a cor.
+        ; Static com SS_NOTIFY permite cor dinâmica e funciona como botão.
         this.MirrorToggleButton := panel.AddText(
-            "x10 y138 w290 h34 Center 0x200 0x100 Border "
-            . "BackgroundE2E8F0 c1F2937",
-            ""
+            "x10 y94 w290 h34 Center 0x200 0x100 Border "
+            . "BackgroundCBD5E1 c1E293B",
+            "Espelhamento OFF"
         )
         this.MirrorToggleButton.OnEvent(
             "Click",
             (*) => FloatingPanel.ToggleMirrorCallback.Call()
         )
 
-        followButton := panel.AddButton(
-            "x10 y182 w290 h40",
-            "Fazer mulas seguirem o líder"
+        mountButton := panel.AddText(
+            "x10 y138 w142 h34 Center 0x200 0x100 Border "
+            . "Background15803D cFFFFFF",
+            "Montar PT"
+        )
+        mountButton.OnEvent(
+            "Click",
+            (*) => FloatingPanel.BuildPartyCallback.Call()
+        )
+
+        rebuildButton := panel.AddText(
+            "x158 y138 w142 h34 Center 0x200 0x100 Border "
+            . "BackgroundB45309 cFFFFFF",
+            "Remontar PT"
+        )
+        rebuildButton.OnEvent(
+            "Click",
+            (*) => FloatingPanel.RebuildPartyCallback.Call()
+        )
+
+        followButton := panel.AddText(
+            "x10 y182 w290 h36 Center 0x200 0x100 Border "
+            . "Background0F766E cFFFFFF",
+            "Seguir Lider"
         )
         followButton.OnEvent(
             "Click",
             (*) => FloatingPanel.FollowLeaderCallback.Call()
         )
 
+        panel.SetFont("s8", "Segoe UI")
         panel.AddText(
-            "x10 y231 w290 Center c64748B",
+            "x10 y230 w290 Center c64748B",
             "Arraste pela barra de título para mover"
         )
 
@@ -154,14 +199,16 @@ class FloatingPanel
         ; ÁREA EXPANDIDA
         ; =====================================================
 
+        panel.SetFont("s9", "Segoe UI")
         this.ConfigTabs := panel.AddTab3(
-            "x320 y10 w660 h625",
-            ["Seguir líder", "Atalhos", "Sistema", "Mulas"]
+            "x320 y10 w660 h625 -Wrap",
+            ["Seguir líder", "Atalhos", "Montar PT", "Remontar PT", "Mulas"]
         )
 
         this.BuildFollowTab(panel)
         this.BuildHotkeysTab(panel)
-        this.BuildSystemTab(panel)
+        this.BuildPartySettingsTab(panel)
+        this.BuildRebuildSettingsTab(panel)
         this.BuildMulesTab(panel)
 
         this.ConfigTabs.UseTab()
@@ -172,8 +219,24 @@ class FloatingPanel
         )
 
         this.Window := panel
-        this.FollowActions := Configuration.LoadFollowActions(configPath)
 
+        if !this.HelpMouseMoveCallback
+        {
+            this.HelpMouseMoveCallback := (
+                wParam,
+                lParam,
+                msg,
+                hwnd
+            ) => FloatingPanel.HandleHelpMouseMove(
+                wParam,
+                lParam,
+                msg,
+                hwnd
+            )
+            OnMessage(0x0200, this.HelpMouseMoveCallback)
+        }
+
+        this.FollowActions := Configuration.LoadFollowActions(configPath)
         this.LoadHotkeyControls(hotkeys)
         this.LoadGeneralControls()
         this.LoadMuleControls(1)
@@ -186,7 +249,7 @@ class FloatingPanel
         {
             this.SetExpanded(true)
             this.ConfigTabs.Choose(2)
-            this.HotkeySetupNotice.Text := "PRIMEIRA INICIALIZAÇÃO: configure pelo menos um atalho e salve."
+            this.HotkeySetupNotice.Text := "PRIMEIRA INICIALIZAÇÃO: escolha pelo menos um atalho e salve."
             this.HotkeySetupNotice.Opt("BackgroundFFF4CC c8A5700")
         }
         else
@@ -378,13 +441,13 @@ class FloatingPanel
         this.ConfigTabs.UseTab("Atalhos")
 
         panel.AddText(
-            "x340 y45 w620 h28 Center 0x200 BackgroundDCEBFA c1F4E78",
-            "ATALHOS DO CONTROLLER"
+            "x340 y45 w620 h28 Center 0x200 BackgroundDCEBFA c173B57",
+            "ATALHOS DA PICARETA"
         )
 
         this.HotkeySetupNotice := panel.AddText(
-            "x350 y80 w600 h34 Center 0x200 BackgroundE8F1FB c1F4E78",
-            "Configure pelo menos um atalho. Os demais campos podem ficar vazios."
+            "x350 y80 w600 h34 Center 0x200 BackgroundE8F1FB c173B57",
+            "Clique em um campo e pressione a combinação desejada."
         )
 
         fields := [
@@ -396,7 +459,7 @@ class FloatingPanel
             ["RebuildParty", "Remontar PT"],
             ["ToggleMirror", "Alternar espelhamento"],
             ["ClearRegistrations", "Limpar cadastros"],
-            ["ExitController", "Fechar controller"]
+            ["ExitController", "Fechar Picareta"]
         ]
 
         for index, field in fields
@@ -404,23 +467,48 @@ class FloatingPanel
             column := index <= 5 ? 0 : 1
             row := column = 0 ? index - 1 : index - 6
             x := column = 0 ? 350 : 660
-            fieldY := 125 + (row * 54)
+            fieldY := 125 + (row * 58)
+            propertyName := field[1]
 
             panel.AddText(
-                "x" x " y" fieldY " w180 c334155",
+                "x" x " y" fieldY " w285 c334155",
                 field[2]
             )
 
-            edit := panel.AddEdit(
-                "x" x " y" (fieldY + 19) " w250",
+            keyboard := panel.AddHotkey(
+                "x" x " y" (fieldY + 20) " w130",
                 ""
             )
 
-            this.HotkeyEdits[field[1]] := edit
+            special := panel.AddDropDownList(
+                "x" (x + 135) " y" (fieldY + 19) " w110",
+                this.HotkeySpecialLabels
+            )
+            special.Choose(1)
+
+            winCheck := panel.AddCheckBox(
+                "x" (x + 250) " y" (fieldY + 22) " w45",
+                "Win"
+            )
+
+            keyboard.OnEvent(
+                "Change",
+                this.CreateKeyboardHotkeyCallback(propertyName)
+            )
+            special.OnEvent(
+                "Change",
+                this.CreateSpecialHotkeyCallback(propertyName)
+            )
+
+            this.HotkeyEdits[propertyName] := {
+                Keyboard: keyboard,
+                Special: special,
+                Win: winCheck
+            }
         }
 
         saveButton := panel.AddButton(
-            "x700 y365 w210 h34 Default",
+            "x700 y375 w210 h34 Default -Wrap",
             "Salvar e aplicar atalhos"
         )
         saveButton.OnEvent(
@@ -429,100 +517,123 @@ class FloatingPanel
         )
 
         panel.AddText(
-            "x350 y420 w590 c1F4E78",
-            "GUIA PARA COPIAR E COLAR"
+            "x350 y430 w590 h105 0x200 BackgroundF8FAFC c334155",
+            "COMO CONFIGURAR:`n"
+            . "• Teclado: clique no campo branco e pressione a tecla ou combinação.`n"
+            . "• Mouse/roda: selecione a opção na caixa ao lado.`n"
+            . "• Tecla Windows: marque Win e escolha a tecla ou botão.`n"
+            . "• Para remover um atalho, apague o campo e selecione Nenhum."
         )
 
-        guide := "Tecla F1 = F1        | Ctrl + F1 = ^F1        | Alt + F1 = !F1`r`n"
-            . "Shift + F1 = +F1   | Ctrl + Alt + F1 = ^!F1 | Tecla ' = SC029`r`n"
-            . "Botão do meio = MButton | Lateral traseiro = XButton1`r`n"
-            . "Lateral dianteiro = XButton2 | Escape = Esc | Espaço = Space`r`n"
-            . "Deixe um campo vazio quando não quiser usar atalho nesse comando."
-
-        panel.AddEdit(
-            "x350 y445 w590 r7 ReadOnly",
-            guide
+        status := panel.AddText(
+            "x350 y565 w590 Center c15803D",
+            ""
         )
+        this.ConfigStatusTexts.Push(status)
     }
 
-    static BuildSystemTab(panel)
+    static BuildPartySettingsTab(panel)
     {
-        this.ConfigTabs.UseTab("Sistema")
+        this.ConfigTabs.UseTab("Montar PT")
 
         panel.AddText(
-            "x340 y45 w620 h28 Center 0x200 BackgroundDCEBFA c1F4E78",
-            "CONFIGURAÇÕES DO SISTEMA — CAPTURAS FEITAS NO PERSONAGEM PRINCIPAL"
+            "x340 y45 w620 h28 Center 0x200 BackgroundDCFCE7 c166534",
+            "CONFIGURAÇÃO DA MONTAGEM DE PT — CAPTURA NO PERSONAGEM PRINCIPAL"
         )
 
         panel.AddGroupBox(
-            "x340 y82 w300 h475",
-            "Montagem da PT"
+            "x365 y90 w570 h445",
+            "Convites e aceites"
         )
 
         this.AddGeneralCoordinatePair(
             panel,
-            355,
-            112,
+            390,
+            125,
             "Notificação para aceitar convite",
             "NotificationX",
             "NotificationY",
-            "No personagem principal, clique na posição equivalente ao aviso "
-            . "de convite que aparece na tela das mulas.",
-            250
+            "Capture o local do aviso de convite. A mesma posição é usada nas janelas das mulas.",
+            500
         )
 
         this.AddGeneralNumberField(
             panel,
-            355,
-            200,
+            390,
+            225,
             "Delay entre convites",
             "InviteDelay",
             "Tempo de espera entre convidar uma mula e a próxima.",
             "ms",
-            250
+            500
         )
 
         this.AddGeneralNumberField(
             panel,
-            355,
-            275,
+            390,
+            310,
             "Espera antes dos aceites",
             "BeforeAcceptDelay",
             "Tempo após o último convite antes de começar a aceitar nas mulas.",
             "ms",
-            250
+            500
         )
 
         this.AddGeneralNumberField(
             panel,
-            355,
-            350,
+            390,
+            395,
             "Delay entre aceites",
             "AcceptDelay",
             "Tempo entre aceitar o convite de uma mula e o da próxima.",
             "ms",
-            250
+            500
+        )
+
+        saveButton := panel.AddButton(
+            "x535 y555 w230 h34 Default -Wrap",
+            "Salvar configuração de montagem"
+        )
+        saveButton.OnEvent(
+            "Click",
+            (*) => FloatingPanel.SaveGeneralSettings()
+        )
+
+        status := panel.AddText(
+            "x350 y603 w600 Center c15803D",
+            ""
+        )
+        this.ConfigStatusTexts.Push(status)
+    }
+
+    static BuildRebuildSettingsTab(panel)
+    {
+        this.ConfigTabs.UseTab("Remontar PT")
+
+        panel.AddText(
+            "x340 y45 w620 h28 Center 0x200 BackgroundFFEDD5 c9A3412",
+            "CONFIGURAÇÃO DA REMONTAGEM DE PT — CAPTURA NO PERSONAGEM PRINCIPAL"
         )
 
         panel.AddGroupBox(
-            "x650 y82 w305 h475",
-            "Remontagem da PT"
+            "x340 y82 w300 h475",
+            "Botões e delays"
         )
 
         this.AddGeneralCoordinatePair(
             panel,
-            665,
+            355,
             112,
             "Botão Expulsar",
             "KickX",
             "KickY",
-            "Selecione uma mula na lista da PT e capture o botão usado para expulsá-la.",
+            "Selecione um membro na lista da PT e capture o botão usado para expulsá-lo.",
             260
         )
 
         this.AddGeneralCoordinatePair(
             panel,
-            665,
+            355,
             182,
             "Botão Transferir liderança",
             "TransferLeaderX",
@@ -533,7 +644,7 @@ class FloatingPanel
 
         this.AddGeneralCoordinatePair(
             panel,
-            665,
+            355,
             252,
             "Botão Sair da PT",
             "LeavePartyX",
@@ -543,73 +654,111 @@ class FloatingPanel
         )
 
         this.AddGeneralNumberField(
-            panel,
-            665,
-            330,
-            "Selecionar membro",
-            "PartySelectDelay",
-            "Tempo entre selecionar a mula na PT e clicar no botão da ação.",
-            "ms",
-            125
+            panel, 355, 330, "Selecionar membro", "PartySelectDelay",
+            "Tempo entre selecionar a posição na PT e clicar no botão da ação.", "ms", 125
+        )
+        this.AddGeneralNumberField(
+            panel, 495, 330, "Após expulsar", "PartyKickDelay",
+            "Tempo para o jogo processar a expulsão.", "ms", 125
+        )
+        this.AddGeneralNumberField(
+            panel, 355, 405, "Após transferir", "PartyTransferDelay",
+            "Tempo após transferir a liderança.", "ms", 125
+        )
+        this.AddGeneralNumberField(
+            panel, 495, 405, "Antes de sair", "PartyBeforeLeaveDelay",
+            "Espera antes de o principal sair da PT.", "ms", 125
+        )
+        this.AddGeneralNumberField(
+            panel, 355, 480, "Após sair", "PartyLeaveDelay",
+            "Tempo após clicar em Sair da PT.", "ms", 125
         )
 
-        this.AddGeneralNumberField(
-            panel,
-            815,
-            330,
-            "Depois de expulsar",
-            "PartyKickDelay",
-            "Tempo para o jogo processar a expulsão antes da próxima ação.",
-            "ms",
-            125
+        panel.AddGroupBox(
+            "x650 y82 w305 h475",
+            "Posições fixas da lista da PT"
         )
 
-        this.AddGeneralNumberField(
-            panel,
-            665,
-            405,
-            "Depois de transferir",
-            "PartyTransferDelay",
-            "Tempo após transferir a liderança.",
-            "ms",
-            125
+        helpPositions := panel.AddButton(
+            "x915 y90 w26 h24",
+            "?"
+        )
+        this.RegisterHelpControl(
+            helpPositions,
+            "As posições pertencem às linhas da lista da PT, não aos nomes das mulas. "
+            . "A Mula 1 usa a posição 1, a Mula 2 usa a posição 2 e assim por diante. "
+            . "A remontagem continua expulsando da última posição usada para a primeira."
         )
 
-        this.AddGeneralNumberField(
-            panel,
-            815,
-            405,
-            "Antes de sair",
-            "PartyBeforeLeaveDelay",
-            "Espera adicional antes de o principal sair da PT.",
-            "ms",
-            125
+        this.PartyPositionList := panel.AddListView(
+            "x665 y118 w275 h270 Grid -Multi",
+            ["Posição", "X", "Y", "Situação"]
+        )
+        this.PartyPositionList.ModifyCol(1, 58)
+        this.PartyPositionList.ModifyCol(2, 55)
+        this.PartyPositionList.ModifyCol(3, 55)
+        this.PartyPositionList.ModifyCol(4, 90)
+        this.PartyPositionList.OnEvent(
+            "ItemSelect",
+            (ctrl, row, selected) => FloatingPanel.OnPartyPositionSelected(
+                ctrl,
+                row,
+                selected
+            )
         )
 
-        this.AddGeneralNumberField(
-            panel,
-            665,
-            480,
-            "Depois de sair",
-            "PartyLeaveDelay",
-            "Tempo após clicar em Sair da PT.",
-            "ms",
-            125
+        ; Controles ocultos mantêm os dez pares dentro do mesmo fluxo de salvamento.
+        Loop 10
+        {
+            xKey := "PartyPosition" A_Index "X"
+            yKey := "PartyPosition" A_Index "Y"
+            this.GeneralEdits[xKey] := panel.AddEdit("Hidden", "0")
+            this.GeneralEdits[yKey] := panel.AddEdit("Hidden", "0")
+        }
+
+        panel.AddText("x665 y405 w18", "X:")
+        this.PartyPositionXEdit := panel.AddEdit(
+            "x685 y400 w65 Number",
+            "0"
+        )
+        panel.AddText("x760 y405 w18", "Y:")
+        this.PartyPositionYEdit := panel.AddEdit(
+            "x780 y400 w65 Number",
+            "0"
+        )
+
+        capturePosition := panel.AddButton(
+            "x855 y399 w85 h28 -Wrap",
+            "Capturar"
+        )
+        capturePosition.OnEvent(
+            "Click",
+            (*) => FloatingPanel.StartPartyPositionCapture()
+        )
+
+        applyPosition := panel.AddButton(
+            "x665 y440 w275 h30 -Wrap",
+            "Aplicar valores à posição selecionada"
+        )
+        applyPosition.OnEvent(
+            "Click",
+            (*) => FloatingPanel.SavePartyPositionEditor(true)
         )
 
         saveButton := panel.AddButton(
-            "x700 y570 w210 h32 Default",
-            "Salvar configurações"
+            "x680 y505 w245 h34 Default -Wrap",
+            "Salvar configuração de remontagem"
         )
         saveButton.OnEvent(
             "Click",
             (*) => FloatingPanel.SaveGeneralSettings()
         )
 
-        this.ConfigStatusText := panel.AddText(
-            "x340 y610 w620 Center c15803D",
+        status := panel.AddText(
+            "x350 y603 w600 Center c15803D",
             ""
         )
+        this.ConfigStatusTexts.Push(status)
     }
 
     static BuildMulesTab(panel)
@@ -617,15 +766,11 @@ class FloatingPanel
         this.ConfigTabs.UseTab("Mulas")
 
         panel.AddText(
-            "x340 y45 w620 h28 Center 0x200 BackgroundDCEBFA c1F4E78",
+            "x340 y45 w620 h28 Center 0x200 BackgroundE0E7FF c3730A3",
             "CONFIGURAÇÃO DAS MULAS — CAPTURAS FEITAS NO PERSONAGEM PRINCIPAL"
         )
 
-        panel.AddText(
-            "x340 y84 w110",
-            "Mula configurada:"
-        )
-
+        panel.AddText("x340 y84 w110", "Mula configurada:")
         this.MuleSlotDDL := panel.AddDropDownList(
             "x455 y79 w260",
             Configuration.GetMuleChoices(this.ConfigPath)
@@ -644,7 +789,7 @@ class FloatingPanel
         )
 
         panel.AddGroupBox(
-            "x340 y115 w390 h430",
+            "x340 y115 w390 h365",
             "Dados e coordenadas"
         )
 
@@ -654,13 +799,10 @@ class FloatingPanel
             ""
         )
         helpName := panel.AddButton("x685 y144 w28 h25", "?")
-        helpName.OnEvent(
-            "Click",
-            (*) => FloatingPanel.ShowHelp(
-                "Nome da mula",
-                "Informe o nome do personagem correspondente a esta posição. "
-                . "As mulas devem ser configuradas e cadastradas na mesma ordem."
-            )
+        this.RegisterHelpControl(
+            helpName,
+            "Informe o nome do personagem correspondente a esta posição. "
+            . "As mulas devem ser configuradas e cadastradas na mesma ordem."
         )
 
         this.AddMuleCoordinatePair(
@@ -676,25 +818,15 @@ class FloatingPanel
         this.AddMuleCoordinatePair(
             panel,
             365,
-            295,
+            300,
             "Opção Convidar do menu",
             "InviteX",
             "InviteY",
             "Abra o menu com o botão direito no nome da mula e capture a opção Convidar."
         )
 
-        this.AddMuleCoordinatePair(
-            panel,
-            365,
-            385,
-            "Posição da mula na lista da PT",
-            "PartyX",
-            "PartyY",
-            "Capture em cima da linha ocupada por esta mula na lista do grupo."
-        )
-
         saveButton := panel.AddButton(
-            "x455 y500 w210 h32 Default",
+            "x440 y425 w230 h34 Default -Wrap",
             "Salvar dados da mula"
         )
         saveButton.OnEvent(
@@ -703,8 +835,8 @@ class FloatingPanel
         )
 
         panel.AddGroupBox(
-            "x745 y115 w210 h430",
-            "Cadastradas nesta sessão"
+            "x745 y115 w210 h365",
+            "Janelas desta sessão"
         )
 
         this.LeaderRegistrationText := panel.AddText(
@@ -713,27 +845,44 @@ class FloatingPanel
         )
 
         this.RegisteredMulesList := panel.AddListView(
-            "x758 y180 w184 h285 Grid -Multi",
+            "x758 y180 w184 h210 Grid -Multi",
             ["#", "Nome", "Janela"]
         )
         this.RegisteredMulesList.ModifyCol(1, 28)
         this.RegisteredMulesList.ModifyCol(2, 90)
         this.RegisteredMulesList.ModifyCol(3, 60)
 
+        panel.SetFont("s8", "Segoe UI")
         refreshButton := panel.AddButton(
-            "x775 y485 w150 h30",
-            "Atualizar lista"
+            "x758 y405 w88 h32 -Wrap",
+            "Atualizar"
         )
         refreshButton.OnEvent(
             "Click",
             (*) => FloatingPanel.RefreshRegistrationStatus()
         )
 
-        panel.AddText(
-            "x340 y570 w610 c64748B",
-            "A configuração fica salva no Characters.ini. O cadastro das janelas "
-            . "vale somente durante a sessão atual do controller."
+        clearButton := panel.AddButton(
+            "x852 y405 w90 h32 -Wrap",
+            "Limpar cadastros"
         )
+        clearButton.OnEvent(
+            "Click",
+            (*) => FloatingPanel.ClearSessionRegistrations()
+        )
+        panel.SetFont("s9", "Segoe UI")
+
+        panel.AddText(
+            "x340 y510 w610 c64748B",
+            "Nome e coordenadas ficam salvos no Characters.ini. As janelas cadastradas "
+            . "valem somente enquanto a Picareta estiver aberta."
+        )
+
+        status := panel.AddText(
+            "x350 y565 w590 Center c15803D",
+            ""
+        )
+        this.ConfigStatusTexts.Push(status)
     }
 
     static ToggleExpanded()
@@ -743,63 +892,134 @@ class FloatingPanel
 
     static SetExpanded(expanded)
     {
-        this.Expanded := expanded
+        compactWidth := 310
+        compactHeight := 262
+        expandedWidth := 990
+        expandedHeight := 650
 
-        if expanded
+        targetWidth := expanded ? expandedWidth : compactWidth
+        targetHeight := expanded ? expandedHeight : compactHeight
+
+        if !this.PositionInitialized
         {
-            this.ExpandButton.Text := "Recolher configurações  «"
-            this.Window.Show("w990 h650")
+            try
+            {
+                primary := MonitorGetPrimary()
+                MonitorGetWorkArea(primary, &left, &top, &right, &bottom)
+            }
+            catch
+            {
+                left := 0
+                top := 0
+                right := A_ScreenWidth
+                bottom := A_ScreenHeight
+            }
+
+            rightEdge := right - 20
+            currentY := top + 50
+            this.PositionInitialized := true
         }
         else
         {
-            this.ExpandButton.Text := "Abrir configurações  »"
-            this.Window.Show("w310 h262")
+            this.Window.GetPos(&currentX, &currentY, &currentWidth, &currentHeight)
+            rightEdge := currentX + currentWidth
+            this.GetWorkAreaForPoint(
+                currentX + (currentWidth / 2),
+                currentY + 20,
+                &left,
+                &top,
+                &right,
+                &bottom
+            )
         }
+
+        targetX := rightEdge - targetWidth
+
+        if targetX < left
+            targetX := left
+
+        if targetX + targetWidth > right
+            targetX := right - targetWidth
+
+        if currentY < top
+            currentY := top
+
+        if currentY + targetHeight > bottom
+            currentY := Max(top, bottom - targetHeight)
+
+        this.Expanded := expanded
+        this.ExpandButton.Text := expanded
+            ? "Recolher configurações  «"
+            : "Abrir configurações  »"
+
+        this.Window.Show(
+            "x" targetX
+            . " y" currentY
+            . " w" targetWidth
+            . " h" targetHeight
+        )
     }
 
     static UpdateMirrorStatus(enabled)
     {
-        if !this.MirrorStatusText || !this.MirrorToggleButton
+        if !this.MirrorToggleButton
             return
 
         if enabled
         {
-            this.MirrorStatusText.Text := "Status: ATIVADO"
-            this.MirrorStatusText.Opt("c15803D")
-            this.MirrorToggleButton.Text := "Desativar espelhamento"
+            this.MirrorToggleButton.Text := "Espelhamento ON"
             this.MirrorToggleButton.Opt(
                 "Background2563EB cFFFFFF"
             )
         }
         else
         {
-            this.MirrorStatusText.Text := "Status: DESATIVADO"
-            this.MirrorStatusText.Opt("c64748B")
-            this.MirrorToggleButton.Text := "Ativar espelhamento"
+            this.MirrorToggleButton.Text := "Espelhamento OFF"
             this.MirrorToggleButton.Opt(
-                "BackgroundE2E8F0 c1F2937"
+                "BackgroundCBD5E1 c1E293B"
             )
         }
     }
 
     static LoadHotkeyControls(hotkeys)
     {
-        for propertyName, edit in this.HotkeyEdits
-            edit.Value := hotkeys.%propertyName%
+        for propertyName, controls in this.HotkeyEdits
+        {
+            value := Trim(hotkeys.%propertyName%)
+            hasWin := InStr(value, "#") > 0
+            value := StrReplace(value, "#")
+
+            controls.Win.Value := hasWin ? 1 : 0
+            specialIndex := this.FindSpecialHotkeyIndex(value)
+
+            if specialIndex > 1
+            {
+                controls.Keyboard.Value := ""
+                controls.Special.Choose(specialIndex)
+            }
+            else
+            {
+                controls.Special.Choose(1)
+                try
+                    controls.Keyboard.Value := value
+                catch
+                    controls.Keyboard.Value := ""
+            }
+        }
     }
 
     static SaveHotkeys()
     {
         hotkeys := {
-            RegisterLeader: Trim(this.HotkeyEdits["RegisterLeader"].Value),
-            RegisterMule: Trim(this.HotkeyEdits["RegisterMule"].Value),
-            NextWindow: Trim(this.HotkeyEdits["NextWindow"].Value),
-            ShowStatus: Trim(this.HotkeyEdits["ShowStatus"].Value),
-            BuildParty: Trim(this.HotkeyEdits["BuildParty"].Value),
-            RebuildParty: Trim(this.HotkeyEdits["RebuildParty"].Value),
-            ToggleMirror: Trim(this.HotkeyEdits["ToggleMirror"].Value),
-            ClearRegistrations: Trim(this.HotkeyEdits["ClearRegistrations"].Value),
-            ExitController: Trim(this.HotkeyEdits["ExitController"].Value)
+            RegisterLeader: this.GetHotkeyControlValue("RegisterLeader"),
+            RegisterMule: this.GetHotkeyControlValue("RegisterMule"),
+            NextWindow: this.GetHotkeyControlValue("NextWindow"),
+            ShowStatus: this.GetHotkeyControlValue("ShowStatus"),
+            BuildParty: this.GetHotkeyControlValue("BuildParty"),
+            RebuildParty: this.GetHotkeyControlValue("RebuildParty"),
+            ToggleMirror: this.GetHotkeyControlValue("ToggleMirror"),
+            ClearRegistrations: this.GetHotkeyControlValue("ClearRegistrations"),
+            ExitController: this.GetHotkeyControlValue("ExitController")
         }
 
         if !Configuration.SaveHotkeys(this.ConfigPath, hotkeys)
@@ -823,10 +1043,19 @@ class FloatingPanel
 
         for propertyName, edit in this.GeneralEdits
             edit.Value := values.%propertyName%
+
+        this.RefreshPartyPositionList(1)
+        this.LoadPartyPositionEditor(1)
     }
 
     static SaveGeneralSettings()
     {
+        if this.SelectedPartyPosition > 0
+        {
+            if !this.SavePartyPositionEditor(false)
+                return
+        }
+
         values := {}
 
         for propertyName, edit in this.GeneralEdits
@@ -838,7 +1067,8 @@ class FloatingPanel
         if this.ReloadSettingsCallback
             this.ReloadSettingsCallback.Call()
 
-        this.ShowConfigStatus("Configurações do sistema salvas e aplicadas.")
+        this.RefreshPartyPositionList(this.SelectedPartyPosition)
+        this.ShowConfigStatus("Configurações salvas e aplicadas.")
     }
 
     static LoadMuleControls(slot)
@@ -987,15 +1217,15 @@ class FloatingPanel
 
         if muleSlot < 1 || muleSlot > 9
         {
-            MsgBox("Selecione uma mula válida.", "PW Controller")
+            PicaretaDialog("Selecione uma mula válida.", "Picareta")
             return
         }
 
         if !IsNumber(delay) || Integer(delay) < 0
         {
-            MsgBox(
+            PicaretaDialog(
                 "O delay deve ser um número inteiro maior ou igual a zero.",
-                "PW Controller"
+                "Picareta"
             )
             return
         }
@@ -1008,18 +1238,18 @@ class FloatingPanel
         {
             if !IsNumber(x) || !IsNumber(y)
             {
-                MsgBox(
+                PicaretaDialog(
                     "As coordenadas X e Y devem ser números inteiros.",
-                    "PW Controller"
+                    "Picareta"
                 )
                 return
             }
         }
         else if key = ""
         {
-            MsgBox(
+            PicaretaDialog(
                 "Informe a tecla que será enviada.",
-                "PW Controller"
+                "Picareta"
             )
             return
         }
@@ -1062,9 +1292,9 @@ class FloatingPanel
 
         if row = 0
         {
-            MsgBox(
+            PicaretaDialog(
                 "Selecione um item para excluir.",
-                "PW Controller"
+                "Picareta"
             )
             return
         }
@@ -1159,9 +1389,9 @@ class FloatingPanel
     {
         if this.ActionTypeDDL.Value != 1
         {
-            MsgBox(
+            PicaretaDialog(
                 "A captura de posição está disponível apenas para cliques.",
-                "PW Controller"
+                "Picareta"
             )
             return
         }
@@ -1171,10 +1401,10 @@ class FloatingPanel
 
         if muleSlot < 1 || muleSlot > mules.Length
         {
-            MsgBox(
+            PicaretaDialog(
                 "A Mula " muleSlot " ainda não está cadastrada nesta sessão.`n`n"
                 . "Cadastre a mula antes de capturar a coordenada.",
-                "PW Controller"
+                "Picareta"
             )
             return
         }
@@ -1202,9 +1432,7 @@ class FloatingPanel
 
     static RestoreAfterCapture()
     {
-        this.Expanded := true
-        this.ExpandButton.Text := "Recolher configurações  «"
-        this.Window.Show("w990 h650")
+        this.SetExpanded(true)
     }
 
     static GenerateDefaultFollowActions()
@@ -1216,9 +1444,9 @@ class FloatingPanel
 
         if mules.Length = 0
         {
-            MsgBox(
+            PicaretaDialog(
                 "Cadastre as mulas antes de gerar a sequência padrão.",
-                "PW Controller"
+                "Picareta"
             )
             return
         }
@@ -1279,10 +1507,7 @@ class FloatingPanel
             "x" (x + width - 28) " y" (y - 3) " w26 h24",
             "?"
         )
-        helpButton.OnEvent(
-            "Click",
-            (*) => FloatingPanel.ShowHelp(title, helpText)
-        )
+        this.RegisterHelpControl(helpButton, helpText)
 
         panel.AddText("x" x " y" (y + 31) " w15", "X:")
         xEdit := panel.AddEdit(
@@ -1298,8 +1523,9 @@ class FloatingPanel
         )
         this.GeneralEdits[yKey] := yEdit
 
+        captureWidth := Max(78, width - 165)
         captureButton := panel.AddButton(
-            "x" (x + 165) " y" (y + 25) " w" (width - 165) " h27",
+            "x" (x + 165) " y" (y + 25) " w" captureWidth " h27 -Wrap",
             "Capturar"
         )
         captureButton.OnEvent(
@@ -1323,6 +1549,7 @@ class FloatingPanel
         width
     )
     {
+        panel.SetFont(width <= 130 ? "s8" : "s9", "Segoe UI")
         panel.AddText(
             "x" x " y" y " w" (width - 35) " c334155",
             title
@@ -1332,20 +1559,18 @@ class FloatingPanel
             "x" (x + width - 28) " y" (y - 3) " w26 h24",
             "?"
         )
-        helpButton.OnEvent(
-            "Click",
-            (*) => FloatingPanel.ShowHelp(title, helpText)
-        )
+        this.RegisterHelpControl(helpButton, helpText)
 
         edit := panel.AddEdit(
-            "x" x " y" (y + 23) " w80 Number",
+            "x" x " y" (y + 23) " w75 Number",
             "0"
         )
         this.GeneralEdits[key] := edit
         panel.AddText(
-            "x" (x + 87) " y" (y + 28) " w35",
+            "x" (x + 82) " y" (y + 28) " w35",
             unit
         )
+        panel.SetFont("s9", "Segoe UI")
     }
 
     static AddMuleCoordinatePair(
@@ -1367,10 +1592,7 @@ class FloatingPanel
             "x685 y" (y - 3) " w28 h25",
             "?"
         )
-        helpButton.OnEvent(
-            "Click",
-            (*) => FloatingPanel.ShowHelp(title, helpText)
-        )
+        this.RegisterHelpControl(helpButton, helpText)
 
         panel.AddText("x" x " y" (y + 34) " w15", "X:")
         xEdit := panel.AddEdit(
@@ -1387,7 +1609,7 @@ class FloatingPanel
         this.MuleEdits[yKey] := yEdit
 
         captureButton := panel.AddButton(
-            "x" (x + 195) " y" (y + 28) " w125 h28",
+            "x" (x + 195) " y" (y + 28) " w125 h28 -Wrap",
             "Capturar no principal"
         )
         captureButton.OnEvent(
@@ -1409,9 +1631,9 @@ class FloatingPanel
     {
         if !this.GetLeaderCallback
         {
-            MsgBox(
+            PicaretaDialog(
                 "O acesso ao personagem principal não está disponível.",
-                "PW Controller"
+                "Picareta"
             )
             return
         }
@@ -1420,10 +1642,10 @@ class FloatingPanel
 
         if !leaderHwnd || !PWWindows.IsOpen(leaderHwnd)
         {
-            MsgBox(
+            PicaretaDialog(
                 "Cadastre e mantenha aberta a janela do personagem principal "
                 . "antes de capturar coordenadas.",
-                "PW Controller"
+                "Picareta"
             )
             return
         }
@@ -1523,7 +1745,7 @@ class FloatingPanel
             slot := 1
 
         this.SetExpanded(true)
-        this.ConfigTabs.Choose(4)
+        this.ConfigTabs.Choose(5)
         this.MuleSlotDDL.Choose(slot)
         this.LoadMuleControls(slot)
         this.RefreshRegistrationStatus()
@@ -1540,31 +1762,54 @@ class FloatingPanel
         this.Window.Show()
     }
 
-    static ShowDialog(message, title := "PW Controller", options := "")
+    static ShowDialog(message, title := "Picareta", options := "")
     {
-        if this.Window
-        {
-            this.Window.Opt("+OwnDialogs")
-            this.Window.Show("NoActivate")
-        }
+        temporaryOwner := false
+        restoreHidden := false
 
-        return MsgBox(message, title, options)
+        try
+        {
+            if this.Window
+            {
+                restoreHidden := !DllCall(
+                    "IsWindowVisible",
+                    "Ptr",
+                    this.Window.Hwnd,
+                    "Int"
+                )
+                this.Window.Opt("+OwnDialogs")
+                this.Window.Show()
+                WinActivate("ahk_id " this.Window.Hwnd)
+                return MsgBox(message, title, options)
+            }
+
+            temporaryOwner := Gui(
+                "+AlwaysOnTop +ToolWindow -Caption",
+                title
+            )
+            temporaryOwner.Opt("+OwnDialogs")
+            temporaryOwner.Show("xCenter yCenter w1 h1")
+            return MsgBox(message, title, options)
+        }
+        finally
+        {
+            if temporaryOwner
+                temporaryOwner.Destroy()
+
+            if restoreHidden && this.Window
+                this.Window.Hide()
+        }
     }
 
     static ShowHelp(title, message)
     {
-        return this.ShowDialog(message, title)
+        ToolTip(title ":`n" message, , , 20)
+        SetTimer(() => ToolTip(, , , 20), -6000)
     }
 
     static Confirm(message, title)
     {
-        if this.Window
-        {
-            this.Window.Opt("+OwnDialogs")
-            this.Window.Show()
-        }
-
-        return MsgBox(
+        return this.ShowDialog(
             message,
             title,
             "YesNo Icon?"
@@ -1573,11 +1818,257 @@ class FloatingPanel
 
     static ShowConfigStatus(message)
     {
-        if this.ConfigStatusText
-            this.ConfigStatusText.Text := message
+        for statusText in this.ConfigStatusTexts
+            statusText.Text := message
 
         ToolTip(message)
         SetTimer(() => ToolTip(), -2200)
+    }
+
+    static CreateKeyboardHotkeyCallback(propertyName)
+    {
+        return (*) => FloatingPanel.OnKeyboardHotkeyChanged(propertyName)
+    }
+
+    static CreateSpecialHotkeyCallback(propertyName)
+    {
+        return (*) => FloatingPanel.OnSpecialHotkeyChanged(propertyName)
+    }
+
+    static OnKeyboardHotkeyChanged(propertyName)
+    {
+        if !this.HotkeyEdits.Has(propertyName)
+            return
+
+        controls := this.HotkeyEdits[propertyName]
+
+        if Trim(controls.Keyboard.Value) != ""
+            controls.Special.Choose(1)
+    }
+
+    static OnSpecialHotkeyChanged(propertyName)
+    {
+        if !this.HotkeyEdits.Has(propertyName)
+            return
+
+        controls := this.HotkeyEdits[propertyName]
+
+        if controls.Special.Value > 1
+            controls.Keyboard.Value := ""
+    }
+
+    static FindSpecialHotkeyIndex(value)
+    {
+        for index, code in this.HotkeySpecialCodes
+        {
+            if StrLower(code) = StrLower(value)
+                return index
+        }
+
+        return 1
+    }
+
+    static GetHotkeyControlValue(propertyName)
+    {
+        controls := this.HotkeyEdits[propertyName]
+        specialIndex := controls.Special.Value
+        value := specialIndex > 1
+            ? this.HotkeySpecialCodes[specialIndex]
+            : Trim(controls.Keyboard.Value)
+
+        if value != "" && controls.Win.Value = 1
+            value := "#" value
+
+        return value
+    }
+
+    static RegisterHelpControl(control, helpText)
+    {
+        control.HelpText := helpText
+        control.OnEvent(
+            "Click",
+            (ctrl, *) => FloatingPanel.ShowHelpTooltip(ctrl)
+        )
+    }
+
+    static HandleHelpMouseMove(wParam, lParam, msg, hwnd)
+    {
+        if hwnd = this.LastHelpHwnd
+            return
+
+        this.LastHelpHwnd := hwnd
+        ToolTip(, , , 20)
+
+        try control := GuiCtrlFromHwnd(hwnd)
+        catch
+            return
+
+        if control && control.HasOwnProp("HelpText")
+            this.ShowHelpTooltip(control)
+    }
+
+    static ShowHelpTooltip(control)
+    {
+        if !control || !control.HasOwnProp("HelpText")
+            return
+
+        if this.Window
+            this.Window.Opt("+OwnDialogs")
+
+        ToolTip(control.HelpText, , , 20)
+        SetTimer(() => ToolTip(, , , 20), -7000)
+    }
+
+    static GetWorkAreaForPoint(x, y, &left, &top, &right, &bottom)
+    {
+        try
+        {
+            count := MonitorGetCount()
+
+            Loop count
+            {
+                MonitorGetWorkArea(A_Index, &testLeft, &testTop, &testRight, &testBottom)
+
+                if x >= testLeft && x < testRight && y >= testTop && y < testBottom
+                {
+                    left := testLeft
+                    top := testTop
+                    right := testRight
+                    bottom := testBottom
+                    return
+                }
+            }
+
+            primary := MonitorGetPrimary()
+            MonitorGetWorkArea(primary, &left, &top, &right, &bottom)
+        }
+        catch
+        {
+            left := 0
+            top := 0
+            right := A_ScreenWidth
+            bottom := A_ScreenHeight
+        }
+    }
+
+    static OnPartyPositionSelected(ctrl, row, selected)
+    {
+        if !selected || row < 1 || row > 10
+            return
+
+        if this.SelectedPartyPosition > 0
+            && this.SelectedPartyPosition != row
+        {
+            if !this.SavePartyPositionEditor(false)
+                return
+        }
+
+        this.LoadPartyPositionEditor(row)
+    }
+
+    static LoadPartyPositionEditor(position)
+    {
+        if position < 1 || position > 10
+            return
+
+        this.SelectedPartyPosition := position
+        xKey := "PartyPosition" position "X"
+        yKey := "PartyPosition" position "Y"
+        this.PartyPositionXEdit.Value := this.GeneralEdits[xKey].Value
+        this.PartyPositionYEdit.Value := this.GeneralEdits[yKey].Value
+
+        if this.PartyPositionList
+            this.PartyPositionList.Modify(position, "Select Focus Vis")
+    }
+
+    static SavePartyPositionEditor(showMessage := false)
+    {
+        position := this.SelectedPartyPosition
+
+        if position < 1 || position > 10
+            return true
+
+        x := Trim(this.PartyPositionXEdit.Value)
+        y := Trim(this.PartyPositionYEdit.Value)
+
+        if !IsNumber(x) || !IsNumber(y)
+            || Integer(x) < 0 || Integer(y) < 0
+        {
+            PicaretaDialog(
+                "As coordenadas da posição devem ser números inteiros maiores ou iguais a zero.",
+                "Picareta"
+            )
+            return false
+        }
+
+        xKey := "PartyPosition" position "X"
+        yKey := "PartyPosition" position "Y"
+        this.GeneralEdits[xKey].Value := Integer(x)
+        this.GeneralEdits[yKey].Value := Integer(y)
+        this.RefreshPartyPositionList(position)
+
+        if showMessage
+            this.ShowConfigStatus("Posição " position " atualizada. Clique em Salvar para gravar no arquivo.")
+
+        return true
+    }
+
+    static RefreshPartyPositionList(selectedPosition := 1)
+    {
+        if !this.PartyPositionList
+            return
+
+        this.PartyPositionList.Delete()
+
+        Loop 10
+        {
+            xKey := "PartyPosition" A_Index "X"
+            yKey := "PartyPosition" A_Index "Y"
+            x := this.GeneralEdits.Has(xKey) ? this.GeneralEdits[xKey].Value : 0
+            y := this.GeneralEdits.Has(yKey) ? this.GeneralEdits[yKey].Value : 0
+            situation := x > 0 && y > 0 ? "Configurada" : "Pendente"
+            this.PartyPositionList.Add("", A_Index, x, y, situation)
+        }
+
+        if selectedPosition >= 1 && selectedPosition <= 10
+            this.PartyPositionList.Modify(selectedPosition, "Select Focus Vis")
+    }
+
+    static StartPartyPositionCapture()
+    {
+        if this.SelectedPartyPosition < 1
+        {
+            PicaretaDialog(
+                "Selecione uma posição da lista antes de capturar.",
+                "Picareta"
+            )
+            return
+        }
+
+        this.StartLeaderCoordinateCapture(
+            this.PartyPositionXEdit,
+            this.PartyPositionYEdit,
+            "Posição " this.SelectedPartyPosition " da lista da PT"
+        )
+    }
+
+    static ClearSessionRegistrations()
+    {
+        if !this.ClearRegistrationsCallback
+            return
+
+        if !this.Confirm(
+            "Deseja limpar o personagem principal e todas as mulas cadastradas nesta sessão?`n`n"
+            . "As configurações salvas no arquivo não serão apagadas.",
+            "Limpar cadastros"
+        )
+        {
+            return
+        }
+
+        this.ClearRegistrationsCallback.Call()
+        this.RefreshRegistrationStatus()
+        this.ShowConfigStatus("Cadastros da sessão limpos.")
     }
 
     static FormatHotkey(hotkey)
