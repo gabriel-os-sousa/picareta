@@ -5,6 +5,7 @@
 #Include "Modules\FloatingPanel.ahk"
 #Include "Modules\Party.ahk"
 #Include "Modules\PartyManagement.ahk"
+#Include "Modules\PartyFollow.ahk"
 #Include "Modules\MouseMirror.ahk"
 
 CoordMode "Mouse", "Client"
@@ -65,7 +66,12 @@ catch Error as err
     ExitApp
 }
 
-FloatingPanel.Show(ControllerHotkeys, ToggleMouseMirror, MouseMirror.IsEnabled())
+FloatingPanel.Show(
+    ControllerHotkeys,
+    ToggleMouseMirror,
+    FollowLeaderWithMules,
+    MouseMirror.IsEnabled()
+)
 ;ShowStartupMessage()
 
 /**
@@ -485,6 +491,71 @@ ShowControllerStatus(*)
     status .= " = fechar controller"
 
     MsgBox status, "PW Controller"
+}
+
+; =========================================================
+; FAZER TODAS AS MULAS SEGUIREM O LÍDER
+; =========================================================
+
+FollowLeaderWithMules(*)
+{
+    global ConfigPath
+    global Mules
+
+    followData := Configuration.LoadFollowLeader(
+        ConfigPath,
+        Mules
+    )
+
+    if !followData
+        return
+
+    preparedMules := followData.Mules
+
+    for index, muleData in preparedMules
+    {
+        ToolTip(
+            "FAZENDO MULAS SEGUIREM O LÍDER"
+            . "`n" muleData.Name
+            . "`n" index " de " preparedMules.Length
+        )
+
+        try
+        {
+            PartyFollow.FollowLeader(
+                muleData.Hwnd,
+                followData.MenuX,
+                followData.MenuY,
+                followData.FollowX,
+                followData.FollowY,
+                followData.MenuDelay
+            )
+        }
+        catch Error as err
+        {
+            ToolTip()
+
+            MsgBox(
+                "Não foi possível executar o comando em "
+                . muleData.Name
+                . ".`n`nMensagem: " err.Message,
+                "Erro no PW Controller"
+            )
+
+            return
+        }
+
+        if followData.MuleDelay > 0
+            Sleep followData.MuleDelay
+    }
+
+    ToolTip(
+        "COMANDO CONCLUÍDO"
+        . "`n" preparedMules.Length
+        . " mula(s) receberam o comando para seguir."
+    )
+
+    SetTimer(() => ToolTip(), -3000)
 }
 
 ; =========================================================

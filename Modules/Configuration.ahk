@@ -503,6 +503,100 @@ class Configuration
         }
     }
 
+
+    /**
+     * Carrega e valida as configurações utilizadas para fazer
+     * todas as mulas cadastradas seguirem o líder.
+     */
+    static LoadFollowLeader(configPath, mules)
+    {
+        if mules.Length = 0
+        {
+            MsgBox(
+                "Nenhuma mula foi cadastrada.`n`n"
+                . "Cadastre pelo menos uma mula antes de usar "
+                . "o comando Seguir líder.",
+                "PW Controller"
+            )
+
+            return false
+        }
+
+        menuX := IniRead(configPath, "General", "FollowMenuX", 0)
+        menuY := IniRead(configPath, "General", "FollowMenuY", 0)
+        followX := IniRead(configPath, "General", "FollowOptionX", 0)
+        followY := IniRead(configPath, "General", "FollowOptionY", 0)
+
+        menuDelay := this.ReadNonNegativeInteger(
+            configPath,
+            "General",
+            "FollowMenuDelay",
+            150
+        )
+
+        muleDelay := this.ReadNonNegativeInteger(
+            configPath,
+            "General",
+            "FollowMuleDelay",
+            100
+        )
+
+        if menuX = 0 || menuY = 0
+        {
+            this.ShowCoordinateError(
+                "local para abrir o menu Seguir",
+                "FollowMenuX",
+                "FollowMenuY"
+            )
+
+            return false
+        }
+
+        if followX = 0 || followY = 0
+        {
+            this.ShowCoordinateError(
+                "item Seguir do menu",
+                "FollowOptionX",
+                "FollowOptionY"
+            )
+
+            return false
+        }
+
+        preparedMules := []
+
+        for mule in mules
+        {
+            if !PWWindows.IsOpen(mule.Hwnd)
+            {
+                MsgBox(
+                    "A janela de " mule.Name
+                    . " não está mais aberta.`n`n"
+                    . "Limpe os cadastros e registre "
+                    . "as janelas novamente.",
+                    "PW Controller"
+                )
+
+                return false
+            }
+
+            preparedMules.Push({
+                Name: mule.Name,
+                Hwnd: mule.Hwnd
+            })
+        }
+
+        return {
+            MenuX: menuX,
+            MenuY: menuY,
+            FollowX: followX,
+            FollowY: followY,
+            MenuDelay: menuDelay,
+            MuleDelay: muleDelay,
+            Mules: preparedMules
+        }
+    }
+
     static ReadNonNegativeInteger(
         configPath,
         section,

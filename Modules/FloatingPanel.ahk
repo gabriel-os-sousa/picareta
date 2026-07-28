@@ -18,7 +18,12 @@ class FloatingPanel
      * O callback recebido utiliza a mesma função responsável pelo atalho,
      * mantendo em um único lugar a alteração do estado e do ícone da bandeja.
      */
-    static Show(hotkeys, toggleMirrorCallback, mirrorEnabled := false)
+    static Show(
+        hotkeys,
+        toggleMirrorCallback,
+        followLeaderCallback,
+        mirrorEnabled := false
+    )
     {
         if this.Window
         {
@@ -73,6 +78,29 @@ class FloatingPanel
         this.MirrorToggleButton.OnEvent(
             "Click",
             toggleMirrorCallback
+        )
+
+        panel.AddText(
+            "xm y+12 w270 0x10"
+        )
+
+        panel.SetFont("s10 bold", "Segoe UI")
+
+        panel.AddText(
+            "xm y+10 w270 Center",
+            "COMANDOS DAS MULAS"
+        )
+
+        panel.SetFont("s9", "Segoe UI")
+
+        followButton := panel.AddButton(
+            "xm y+8 w270 h32",
+            "Fazer mulas seguirem o líder"
+        )
+
+        followButton.OnEvent(
+            "Click",
+            followLeaderCallback
         )
 
         panel.AddText(
