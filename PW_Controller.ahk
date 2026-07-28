@@ -19,12 +19,13 @@ global Mules := []
 
 global NotificationX := 0
 global NotificationY := 0
-
-
-
 global InviteDelay := 150
 global BeforeAcceptDelay := 300
 global AcceptDelay := 150
+
+; Atalhos carregados da seção [Hotkeys].
+global ControllerHotkeys := false
+
 ; =========================================================
 ; INICIALIZAÇÃO
 ; =========================================================
@@ -40,7 +41,87 @@ InviteDelay := settings.InviteDelay
 BeforeAcceptDelay := settings.BeforeAcceptDelay
 AcceptDelay := settings.AcceptDelay
 
+ControllerHotkeys := Configuration.LoadHotkeys(ConfigPath)
+
+if !ControllerHotkeys
+    ExitApp
+
+try
+{
+    RegisterControllerHotkeys()
+}
+catch Error as err
+{
+    MsgBox(
+        "Não foi possível registrar os atalhos."
+        . "`n`nMensagem: " err.Message
+        . "`n`nVerifique a seção [Hotkeys] "
+        . "do Characters.ini."
+        . "`n`nO controller será fechado.",
+        "Erro nos atalhos"
+    )
+
+    ExitApp
+}
+
 ShowStartupMessage()
+
+/**
+ * Registra todos os atalhos do controller.
+ *
+ * Os comandos reais ficam em funções separadas. Dessa forma,
+ * nenhuma funcionalidade precisa conhecer a tecla física que
+ * foi escolhida pelo usuário.
+ */
+RegisterControllerHotkeys()
+{
+    global ControllerHotkeys
+
+    Hotkey(
+        ControllerHotkeys.RegisterLeader,
+        RegisterLeader
+    )
+
+    Hotkey(
+        ControllerHotkeys.RegisterMule,
+        RegisterMule
+    )
+
+    Hotkey(
+        ControllerHotkeys.NextWindow,
+        ActivateNextPWWindow
+    )
+
+    Hotkey(
+        ControllerHotkeys.ShowStatus,
+        ShowControllerStatus
+    )
+
+    Hotkey(
+        ControllerHotkeys.BuildParty,
+        BuildParty
+    )
+
+    Hotkey(
+        ControllerHotkeys.RebuildParty,
+        RebuildParty
+    )
+
+    Hotkey(
+        ControllerHotkeys.ToggleMirror,
+        ToggleMouseMirror
+    )
+
+    Hotkey(
+        ControllerHotkeys.ClearRegistrations,
+        ClearRegistrations
+    )
+
+    Hotkey(
+        ControllerHotkeys.ExitController,
+        ExitController
+    )
+}
 
 ; =========================================================
 ; F2 — CADASTRAR LÍDER
@@ -49,7 +130,7 @@ ShowStartupMessage()
 ; e pressione F2.
 ; =========================================================
 
-F2::
+RegisterLeader(*)
 {
     global LeaderHwnd
     global Mules
@@ -61,7 +142,7 @@ F2::
         MsgBox(
             "A janela ativa não é um cliente válido "
             . "do Perfect World.`n`n"
-            . "Ative a janela do líder e pressione F2.",
+            . "Cadastre primeiro a janela do personagem principal.",
             "PW Controller"
         )
         return
@@ -117,7 +198,7 @@ F2::
 ; em que aparecem na lista de amigos do líder.
 ; =========================================================
 
-F3::
+RegisterMule(*)
 {
     global LeaderHwnd
     global Mules
@@ -127,7 +208,7 @@ F3::
     {
         MsgBox(
             "O líder ainda não foi cadastrado.`n`n"
-            . "Ative a janela do líder e pressione F2.",
+            . "Cadastre primeiro a janela do personagem principal.",
             "PW Controller"
         )
         return
@@ -209,9 +290,7 @@ F3::
 ; =========================================================
 ; SC029 — Alterar para proxima janela
 ; =========================================================
-SC029::ActivateNextPWWindow()
-
-ActivateNextPWWindow()
+ActivateNextPWWindow(*)
 {
     global LeaderHwnd
     global Mules
@@ -299,7 +378,7 @@ ActivateNextPWWindow()
 ; =========================================================
 ; F7 — MOSTRAR SITUAÇÃO DO CADASTRO
 ; =========================================================
-F7::
+ShowControllerStatus(*)
 {
     global LeaderHwnd
     global Mules
@@ -364,29 +443,49 @@ F7::
     else
         status .= " — configurada"
 
-    status .= "`n"
-    status .= "`n============================"
-    status .= "`nF2 = cadastrar líder"
-    status .= "`nF3 = cadastrar próxima mula"
-    status .= "`nF7 = mostrar situação"
-    status .= "`nXButton2 = montar PT"
-    status .= "`nXButton1 = desmontar/remontar PT"
-    status .= "`nMButton = ativar/desativar espelhamento"
-    status .= "`nEspelhamento: " (MouseMirror.IsEnabled() ? "ATIVADO" : "desativado")
-    status .= "`nCtrl + F3 = limpar cadastros"
-    status .= "`nCtrl + Alt + F12 = fechar controller"
+    status .= "`n" ControllerHotkeys.RegisterLeader
+    status .= " = cadastrar principal"
+
+    status .= "`n" ControllerHotkeys.RegisterMule
+    status .= " = cadastrar próxima mula"
+
+    status .= "`n" ControllerHotkeys.NextWindow
+    status .= " = alternar janela"
+
+    status .= "`n" ControllerHotkeys.ShowStatus
+    status .= " = mostrar situação"
+
+    status .= "`n" ControllerHotkeys.BuildParty
+    status .= " = montar PT"
+
+    status .= "`n" ControllerHotkeys.RebuildParty
+    status .= " = desmontar/remontar PT"
+
+    status .= "`n" ControllerHotkeys.ToggleMirror
+    status .= " = ativar/desativar espelhamento"
+
+    status .= "`nEspelhamento: "
+    status .= MouseMirror.IsEnabled()
+        ? "ATIVADO"
+        : "desativado"
+
+    status .= "`n" ControllerHotkeys.ClearRegistrations
+    status .= " = limpar cadastros"
+
+    status .= "`n" ControllerHotkeys.ExitController
+    status .= " = fechar controller"
 
     MsgBox status, "PW Controller"
 }
 
 ; =========================================================
-; XButton1 — MONTAR PT
+; MONTAR PT
 ;
 ; Primeiro valida todas as janelas e coordenadas.
 ; Somente depois inicia os convites.
 ; =========================================================
 
-XButton1::
+BuildParty(*)
 {
     global ConfigPath
     global LeaderHwnd
@@ -568,11 +667,12 @@ XButton1::
 ; XButton2 — REMONTAR PT
 ; =========================================================
 
-XButton2::
+RebuildParty(*)
 {
     global ConfigPath
     global LeaderHwnd
     global Mules
+    global ControllerHotkeys
 
     if !LeaderHwnd
     {
@@ -619,7 +719,7 @@ XButton2::
     }
 
     ; Evita apertar XButton2 novamente durante o processo.
-    Hotkey "XButton2", "Off"
+    Hotkey ControllerHotkeys.RebuildParty, "Off"
 
     try
     {
@@ -768,7 +868,7 @@ XButton2::
     }
     finally
     {
-        Hotkey "XButton2", "On"
+        Hotkey ControllerHotkeys.RebuildParty, "On"
     }
 }
 
@@ -779,7 +879,7 @@ XButton2::
 ; mula cadastrada são repetidos nas demais janelas abertas.
 ; =========================================================
 
-MButton::
+ToggleMouseMirror(*)
 {
     enabled := MouseMirror.Toggle()
 
@@ -813,10 +913,11 @@ MButton::
 ; Não apaga ou modifica o Characters.ini.
 ; =========================================================
 
-^F3::
+ClearRegistrations(*)
 {
     global LeaderHwnd
     global Mules
+    global ControllerHotkeys
 
     LeaderHwnd := 0
     Mules := []
@@ -824,8 +925,10 @@ MButton::
     ToolTip(
         "CADASTROS APAGADOS"
         . "`n`nCadastre novamente:"
-        . "`nF2 = líder"
-        . "`nF3 = mulas"
+        . "`n" ControllerHotkeys.RegisterLeader
+        . " = principal"
+        . "`n" ControllerHotkeys.RegisterMule
+        . " = mulas"
     )
 
     SetTimer(() => ToolTip(), -3000)
@@ -834,8 +937,10 @@ MButton::
 ; =========================================================
 ; CTRL + ALT + F12 — FECHAR CONTROLLER
 ; =========================================================
-
-^!F12::ExitApp
+ExitController(*)
+{
+    ExitApp
+}
 
 ; =========================================================
 ; ESPELHAR CLIQUE DA JANELA ATIVA
@@ -995,19 +1100,31 @@ GetActivePWWindow()
 ; =========================================================
 ; MENSAGEM INICIAL
 ; =========================================================
-
 ShowStartupMessage()
 {
+    global ControllerHotkeys
+
     ToolTip(
         "PW CONTROLLER INICIADO"
-        . "`n`nF2 = cadastrar líder"
-        . "`nF3 = cadastrar mulas"
-        . "`nF7 = conferir cadastro"
-        . "`nXButton2 = montar PT"
-        . "`nXButton1 = desmontar/remontar PT"
-        . "`nPage Up = espelhamento de cliques"
-        . "`nCtrl + Alt + F12 = fechar"
+        . "`n`n" ControllerHotkeys.RegisterLeader
+        . " = cadastrar principal"
+        . "`n" ControllerHotkeys.RegisterMule
+        . " = cadastrar mulas"
+        . "`n" ControllerHotkeys.NextWindow
+        . " = alternar janela"
+        . "`n" ControllerHotkeys.ShowStatus
+        . " = conferir cadastro"
+        . "`n" ControllerHotkeys.BuildParty
+        . " = montar PT"
+        . "`n" ControllerHotkeys.RebuildParty
+        . " = remontar PT"
+        . "`n" ControllerHotkeys.ToggleMirror
+        . " = espelhamento"
+        . "`n" ControllerHotkeys.ClearRegistrations
+        . " = limpar cadastros"
+        . "`n" ControllerHotkeys.ExitController
+        . " = fechar"
     )
 
-    SetTimer(() => ToolTip(), -4500)
+    SetTimer(() => ToolTip(), -5500)
 }

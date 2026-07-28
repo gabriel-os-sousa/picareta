@@ -76,6 +76,148 @@ class Configuration
         }
     }
 
+    /**
+     * Carrega os atalhos configurados no Characters.ini.
+     *
+     * Todos os atalhos possuem um valor padrão para manter
+     * compatibilidade com instalações antigas que ainda não
+     * possuem a seção [Hotkeys].
+     */
+    static LoadHotkeys(configPath)
+    {
+        hotkeys := {
+            RegisterLeader: this.ReadHotkey(
+                configPath,
+                "RegisterLeader",
+                "F2"
+            ),
+
+            RegisterMule: this.ReadHotkey(
+                configPath,
+                "RegisterMule",
+                "F3"
+            ),
+
+            NextWindow: this.ReadHotkey(
+                configPath,
+                "NextWindow",
+                "SC029"
+            ),
+
+            ShowStatus: this.ReadHotkey(
+                configPath,
+                "ShowStatus",
+                "F7"
+            ),
+
+            BuildParty: this.ReadHotkey(
+                configPath,
+                "BuildParty",
+                "XButton1"
+            ),
+
+            RebuildParty: this.ReadHotkey(
+                configPath,
+                "RebuildParty",
+                "XButton2"
+            ),
+
+            ToggleMirror: this.ReadHotkey(
+                configPath,
+                "ToggleMirror",
+                "MButton"
+            ),
+
+            ClearRegistrations: this.ReadHotkey(
+                configPath,
+                "ClearRegistrations",
+                "^F3"
+            ),
+
+            ExitController: this.ReadHotkey(
+                configPath,
+                "ExitController",
+                "^!F12"
+            )
+        }
+
+        if !this.ValidateHotkeys(hotkeys)
+            return false
+
+        return hotkeys
+    }
+
+    /**
+     * Lê um atalho da seção [Hotkeys].
+     *
+     * Remove espaços no início e no fim. Caso o valor esteja
+     * vazio, utiliza o atalho padrão informado.
+     */
+    static ReadHotkey(configPath, key, defaultValue)
+    {
+        value := IniRead(
+            configPath,
+            "Hotkeys",
+            key,
+            defaultValue
+        )
+
+        value := Trim(value)
+
+        if value = ""
+            return defaultValue
+
+        return value
+    }
+
+
+    /**
+     * Verifica se dois comandos foram configurados
+     * com o mesmo atalho.
+     */
+    static ValidateHotkeys(hotkeys)
+    {
+        registered := Map()
+
+        descriptions := Map(
+            "RegisterLeader", "Cadastrar principal",
+            "RegisterMule", "Cadastrar mula",
+            "NextWindow", "Alternar janela",
+            "ShowStatus", "Mostrar status",
+            "BuildParty", "Montar PT",
+            "RebuildParty", "Remontar PT",
+            "ToggleMirror", "Alternar espelhamento",
+            "ClearRegistrations", "Limpar cadastros",
+            "ExitController", "Fechar controller"
+        )
+
+        for propertyName, description in descriptions
+        {
+            hotkeyValue := hotkeys.%propertyName%
+            normalizedValue := StrLower(Trim(hotkeyValue))
+
+            if registered.Has(normalizedValue)
+            {
+                MsgBox(
+                    "Existem dois comandos utilizando o mesmo atalho."
+                    . "`n`nAtalho: " hotkeyValue
+                    . "`nComando 1: " registered[normalizedValue]
+                    . "`nComando 2: " description
+                    . "`n`nCorrija a seção [Hotkeys] "
+                    . "do Characters.ini."
+                    . "`n`nO controller será fechado.",
+                    "Erro nos atalhos"
+                )
+
+                return false
+            }
+
+            registered[normalizedValue] := description
+        }
+
+        return true
+    }
+
     static GetMuleName(configPath, slot)
     {
         return IniRead(
@@ -112,7 +254,7 @@ class Configuration
         {
             MsgBox(
                 "O líder ainda não foi cadastrado.`n`n"
-                . "Ative a janela do líder e pressione F2.",
+                . "Cadastre primeiro a janela do personagem principal.",
                 "PW Controller"
             )
             return false
@@ -122,7 +264,7 @@ class Configuration
         {
             MsgBox(
                 "A janela cadastrada como líder foi fechada.`n`n"
-                . "Use Ctrl + F3 e cadastre novamente.",
+                . "Limpe os cadastros e registre as janelas novamente.",
                 "PW Controller"
             )
             return false
@@ -132,7 +274,7 @@ class Configuration
         {
             MsgBox(
                 "Nenhuma mula foi cadastrada.`n`n"
-                . "Ative cada mula e pressione F3.",
+                . "Cadastre pelo menos uma mula.",
                 "PW Controller"
             )
             return false
@@ -161,7 +303,7 @@ class Configuration
                 MsgBox(
                     "A janela de " mule.Name
                     . " não está mais aberta.`n`n"
-                    . "Use Ctrl + F3 e cadastre novamente.",
+                    . "Limpe os cadastros e registre as janelas novamente.",
                     "PW Controller"
                 )
                 return false

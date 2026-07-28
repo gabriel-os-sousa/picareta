@@ -111,11 +111,8 @@ class PartyManagement
             if leaveDelay > 0
                 Sleep leaveDelay
 
-            PWWindows.SendKey(
-                leaderHwnd,
-                "{y}",
-                200
-            )
+            ;Descomentar para enviar aceite automatico para sair da PT
+            ;PWWindows.SendKey(leaderHwnd, "{y}", 200)
         }
         finally
         {
