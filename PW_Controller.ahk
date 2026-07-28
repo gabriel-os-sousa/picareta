@@ -853,6 +853,7 @@ MirrorCurrentClick()
     CoordMode "Mouse", "Screen"
     MouseGetPos &screenX, &screenY, &hoveredHwnd
     CoordMode "Mouse", "Client"
+    SetControlDelay -1
 
     if !hoveredHwnd
         return

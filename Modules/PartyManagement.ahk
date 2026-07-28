@@ -81,7 +81,8 @@ class PartyManagement
     }
 
     /**
-     * Faz o personagem principal sair da PT.
+     * Faz o personagem principal sair da PT
+     * e confirma a saída pressionando Y.
      */
     static LeaveParty(
         leaderHwnd,
@@ -97,13 +98,28 @@ class PartyManagement
             )
         }
 
-        PWWindows.BackgroundLeftClick(
-            leaderHwnd,
-            leaveX,
-            leaveY
-        )
+        BlockInput "MouseMove"
 
-        if leaveDelay > 0
-            Sleep leaveDelay
+        try
+        {
+            PWWindows.BackgroundLeftClick(
+                leaderHwnd,
+                leaveX,
+                leaveY
+            )
+
+            if leaveDelay > 0
+                Sleep leaveDelay
+
+            PWWindows.SendKey(
+                leaderHwnd,
+                "{y}",
+                200
+            )
+        }
+        finally
+        {
+            BlockInput "MouseMoveOff"
+        }
     }
 }

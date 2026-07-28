@@ -89,16 +89,32 @@ class PWWindows
         lParam := (y << 16) | (x & 0xFFFF)
         target := "ahk_id " hwnd
 
-        ; WM_MOUSEMOVE
-        PostMessage 0x0200, 0, lParam, , target
-        Sleep 30
+        ; Bloqueia apenas o movimento físico durante o clique.
+        ; Isso evita que o mouse real altere a posição virtual
+        ; entre WM_MOUSEMOVE, WM_LBUTTONDOWN e WM_LBUTTONUP.
+        BlockInput "MouseMove"
 
-        ; WM_LBUTTONDOWN
-        PostMessage 0x0201, 1, lParam, , target
-        Sleep 30
+        try
+        {
+            ; Posiciona virtualmente o cursor na janela.
+            PostMessage 0x0200, 0, lParam, , target
 
-        ; WM_LBUTTONUP
-        PostMessage 0x0202, 0, lParam, , target
+            Sleep 30
+
+            ; Pressiona o botão esquerdo.
+            PostMessage 0x0201, 1, lParam, , target
+
+            Sleep 30
+
+            ; Solta o botão esquerdo.
+            PostMessage 0x0202, 0, lParam, , target
+        }
+        finally
+        {
+            ; Garante que o mouse sempre seja liberado,
+            ; mesmo se algum erro ocorrer.
+            BlockInput "MouseMoveOff"
+        }
 
         if delayAfter > 0
             Sleep delayAfter
@@ -113,16 +129,27 @@ class PWWindows
         lParam := (y << 16) | (x & 0xFFFF)
         target := "ahk_id " hwnd
 
-        ; WM_MOUSEMOVE
-        PostMessage 0x0200, 0, lParam, , target
-        Sleep 30
+        BlockInput "MouseMove"
 
-        ; WM_RBUTTONDOWN
-        PostMessage 0x0204, 2, lParam, , target
-        Sleep 30
+        try
+        {
+            ; Posiciona virtualmente o cursor.
+            PostMessage 0x0200, 0, lParam, , target
 
-        ; WM_RBUTTONUP
-        PostMessage 0x0205, 0, lParam, , target
+            Sleep 30
+
+            ; Pressiona o botão direito.
+            PostMessage 0x0204, 2, lParam, , target
+
+            Sleep 30
+
+            ; Solta o botão direito.
+            PostMessage 0x0205, 0, lParam, , target
+        }
+        finally
+        {
+            BlockInput "MouseMoveOff"
+        }
 
         if delayAfter > 0
             Sleep delayAfter

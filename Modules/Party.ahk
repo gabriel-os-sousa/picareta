@@ -15,20 +15,28 @@ class Party
         if !PWWindows.IsOpen(leaderHwnd)
             throw Error("A janela do líder não existe mais.")
 
-        ; O líder está sendo controlado pela janela principal.
-        PWWindows.RightClick(
-            leaderHwnd,
-            friendX,
-            friendY,
-            120
-        )
+        BlockInput "MouseMove"
 
-        PWWindows.LeftClick(
-            leaderHwnd,
-            inviteX,
-            inviteY,
-            120
-        )
+        try
+        {
+            PWWindows.RightClick(
+                leaderHwnd,
+                friendX,
+                friendY,
+                120
+            )
+
+            PWWindows.LeftClick(
+                leaderHwnd,
+                inviteX,
+                inviteY,
+                120
+            )
+        }
+        finally
+        {
+            BlockInput "MouseMoveOff"
+        }
 
         return true
     }
